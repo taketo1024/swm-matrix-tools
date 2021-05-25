@@ -257,6 +257,19 @@ extension MatrixEliminationResult where R: EuclideanRing {
         }
         return Q * y
     }
+    
+    // eliminate again
+    public func eliminate(form: MatrixEliminationForm = .Diagonal) -> MatrixEliminationResult<Impl, n, m> {
+        let e = result.eliminate(form: form)
+        return .init(
+            form: form,
+            size: size,
+            entries: e.entries,
+            headEntries: e.headEntries,
+            rowOps: rowOps + e.rowOps,
+            colOps: colOps + e.colOps
+        )
+    }
 }
 
 extension MatrixEliminationResult where n == m {
