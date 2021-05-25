@@ -62,11 +62,12 @@ public struct MatrixEliminationResult<Impl: MatrixImpl, n: SizeType, m: SizeType
     }
     
     public var rank: Int {
-        headEntries.count
+        assert(form != .none)
+        return headEntries.count
     }
     
     public var nullity: Int {
-        return size.cols - rank
+        size.cols - rank
     }
     
     // returns P of: P * A * Q = B
@@ -109,84 +110,109 @@ public struct MatrixEliminationResult<Impl: MatrixImpl, n: SizeType, m: SizeType
         composeColOps(colOpsInverse, restrictedToRows: rowRange)
     }
     
-    // Returns the matrix consisting of the basis vectors of Ker(A).
-    // If
+    // Returns the matrix Z consisting of the basis vectors of Ker(A).
+    // With k = m - rank,
     //
-    //     P * A * Q = [ D_r | O   ]
-    //                 [   O | O_k ]
+    //     P * A * Q = [ L  | O   ]
+    //                 [ L' | O_k ]
     //
-    // then for any j in (r <= j < m),
-    //
-    //     0 = (A * Q) * e_j = A * (Q * e_j)
-    //
-    // so
-    //
-    //     Ker(A) = Q * [O; I_k]
-    //            = Q[-, r ..< m]
+    //  => Z = Q * [O; I_k]
+    //       = Q[-, r ..< m]
     //
     
     public var kernelMatrix: MatrixIF<Impl, m, anySize>  {
-        assert(isDiagonal)
-        return right(restrictedToCols: rank ..< size.cols)
+        switch form {
+        case .Diagonal, .Smith, .ColHermite, .ColEchelon:
+            return right(restrictedToCols: rank ..< size.cols)
+            
+        case .RowHermite, .RowEchelon:
+            fatalError("not supported yet.")
+            
+        default:
+            fatalError("unavailable.")
+        }
     }
     
-    // Returns the transition matrix T from Z = Ker(A) to I,
-    // i.e.
+    // Returns the transition matrix T of Z,
+    // i.e. T * Z = I_k.
     //
-    //     T * Z = I_k
-    //     <=> z_j = q_{r + j} ∈ R^m  --T--> e_j ∈ R^k  (0 <= j < k)
+    //     T = [O, I_k] Q^-1
+    //       = Q^-1 [r ..< n; -]
     //
-    // Since Z = Q * [O; I_k],
-    //
-    //     T = [O, I_k] Q^{-1}
-    //       = Q^{-1}[r ..< n; -]
-    //
-    // satisfies the desired equation.
+    // satisfies T * Z = [O, I_k] * [O; I_k] = I_k.
     
     public var kernelTransitionMatrix: MatrixIF<Impl, anySize, m> {
-        assert(isDiagonal)
-        return rightInverse(restrictedToRows: rank ..< size.cols)
+        switch form {
+        case .Diagonal, .Smith, .ColHermite, .ColEchelon:
+            return rightInverse(restrictedToRows: rank ..< size.cols)
+            
+        case .RowHermite, .RowEchelon:
+            fatalError("not supported yet.")
+            
+        default:
+            fatalError("unavailable.")
+        }
     }
     
-    // Returns the matrix consisting of the basis vectors of Im(A).
-    // If
+    // Returns the matrix B consisting of the basis vectors of Im(A).
+    // With
     //
-    //     P * A * Q = [ D_r | O   ]
-    //                 [   O | O_k ]
+    //     P * A * Q = [ L  | O   ]
+    //                 [ L' | O_k ]
     //
-    // then
+    // Im(A) is spanned by [L; *].
     //
-    //     A * Q =  [ P^{-1} [D_r] | O ]
-    //              [        [O  ] | O ]
+    //  => B = P^-1 * [L; L'].
     //
-    // so
+    // In case L' = 0,
     //
-    //    Im(A) = P^{-1} [D_r; O]
-    //          = P^{-1}[-, 0 ..< r] * D_r.
+    //     B = P^-1[-; 0 ..< r] * L.
     
     public var imageMatrix: MatrixIF<Impl, n, anySize> {
-        assert(isDiagonal)
         let r = rank
-        return leftInverse(restrictedToCols: 0 ..< r) * result.submatrix(rowRange: 0 ..< r, colRange: 0 ..< r)
-    }
-    
-    // Returns the transition matrix T from Im(A) to D_r,
-    // i.e.
-    //
-    //     D_r = T * Im(A)
-    //         = T * P^{-1} * [D_r; O]
-    //         = T * P^{-1} * [I_r; O] * D_r
-    //
-    // so
-    //
-    //     T = [I_r, O] * P
-    //       = P[0 ..< r, -].
+        
+        switch form {
+        case .Diagonal, .Smith:
+            return leftInverse(restrictedToCols: 0 ..< r) * result.submatrix(rowRange: 0 ..< r, colRange: 0 ..< r)
 
-    public var imageTransitionMatrix: MatrixIF<Impl, anySize, n> {
-        assert(isDiagonal)
-        return left(restrictedToRows: 0 ..< rank)
+        case .ColHermite, .ColEchelon:
+            return leftInverse * result.submatrix(colRange: 0 ..< r)
+
+        case .RowHermite, .RowEchelon:
+            fatalError("not supported yet.")
+            
+        default:
+            fatalError("unavailable.")
+        }
     }
     
+    // Returns a matrix C consisting of the basis vectors of Coker(A).
+    // With
+    //
+    //     P * A * Q = [ L | O   ]
+    //                 [ * | O_k ]
+    //
+    // Coker(A) is spanned by [O; I_{n-r}].
+    //
+    //  => C = P^-1 * [O; I_{n-r}]
+    //       = P^-1 [r ..< n, -]
+
+    public var cokernelMatrix: MatrixIF<Impl, n, anySize> {
+        let (r, n) = (rank, size.rows)
+        
+        switch form {
+        case .Diagonal, .Smith, .ColHermite, .ColEchelon:
+            return leftInverse(restrictedToCols: r ..< n)
+
+        case .RowHermite, .RowEchelon:
+            fatalError("not supported yet.")
+            
+        default:
+            fatalError("unavailable.")
+        }
+    }
+    
+
     var rowOpsInverse: [RowElementaryOperation<R>] {
         rowOps.reversed().map{ $0.inverse }
     }
