@@ -48,8 +48,8 @@ public class MatrixEliminator<R: Ring> {
     var debug: Bool = false
     var aborted: Bool = false
     
-    internal var rowOps: [RowElementaryOperation<R>]
-    internal var colOps: [ColElementaryOperation<R>]
+    public private(set) var rowOps: [RowElementaryOperation<R>]
+    public private(set) var colOps: [ColElementaryOperation<R>]
     
     required init(worker: MatrixEliminationWorker<R>) {
         self.worker = worker

@@ -14,11 +14,10 @@ public struct MatrixEliminationResult<Impl: MatrixImpl, n: SizeType, m: SizeType
     public let size: MatrixSize
     public let entries: AnySequence<MatrixEntry<R>>
     public let headEntries: AnySequence<MatrixEntry<R>>
-
-    let rowOps: [RowElementaryOperation<R>]
-    let colOps: [ColElementaryOperation<R>]
+    public let rowOps: [RowElementaryOperation<R>]
+    public let colOps: [ColElementaryOperation<R>]
     
-    internal init(form: MatrixEliminationForm, size: MatrixSize, entries: AnySequence<MatrixEntry<R>>, headEntries: AnySequence<MatrixEntry<R>>, rowOps: [RowElementaryOperation<R>], colOps: [ColElementaryOperation<R>]) {
+    public init(form: MatrixEliminationForm, size: MatrixSize, entries: AnySequence<MatrixEntry<R>>, headEntries: AnySequence<MatrixEntry<R>>, rowOps: [RowElementaryOperation<R>], colOps: [ColElementaryOperation<R>]) {
         self.form = form
         self.size = size
         self.entries = entries

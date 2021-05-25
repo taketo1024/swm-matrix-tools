@@ -7,12 +7,20 @@
 
 import SwmCore
 
-internal enum RowElementaryOperation<R: Ring> {
+public protocol ElementaryOperation where R == Transpose.R {
+    associatedtype R: Ring
+    associatedtype Transpose: ElementaryOperation
+    var determinant: R { get }
+    var inverse: Self { get }
+    var transposed: Transpose { get }
+}
+
+public enum RowElementaryOperation<R: Ring>: ElementaryOperation {
     case AddRow(at: Int, to: Int, mul: R)
     case MulRow(at: Int, by: R)
     case SwapRows(Int, Int)
     
-    var determinant: R {
+    public var determinant: R {
         switch self {
         case .AddRow(_, _, _):
             return .identity
@@ -23,7 +31,7 @@ internal enum RowElementaryOperation<R: Ring> {
         }
     }
     
-    var inverse: Self {
+    public var inverse: Self {
         switch self {
         case let .AddRow(i, j, r):
             return .AddRow(at: i, to: j, mul: -r)
@@ -34,7 +42,7 @@ internal enum RowElementaryOperation<R: Ring> {
         }
     }
     
-    var transposed: ColElementaryOperation<R> {
+    public var transposed: ColElementaryOperation<R> {
         switch self {
         case let .AddRow(i, j, r):
             return .AddCol(at: i, to: j, mul: r)
@@ -45,7 +53,7 @@ internal enum RowElementaryOperation<R: Ring> {
         }
     }
     
-    var asColOperation: ColElementaryOperation<R> {
+    public var asColOperation: ColElementaryOperation<R> {
         switch self {
         case let .AddRow(at: i, to: j, mul: a):
             return .AddCol(at: j, to: i, mul: a)
@@ -55,12 +63,12 @@ internal enum RowElementaryOperation<R: Ring> {
     }
 }
 
-internal enum ColElementaryOperation<R: Ring> {
+public enum ColElementaryOperation<R: Ring>: ElementaryOperation {
     case AddCol(at: Int, to: Int, mul: R)
     case MulCol(at: Int, by: R)
     case SwapCols(Int, Int)
     
-    var determinant: R {
+    public var determinant: R {
         switch self {
         case .AddCol(_, _, _):
             return .identity
@@ -71,7 +79,7 @@ internal enum ColElementaryOperation<R: Ring> {
         }
     }
     
-    var inverse: Self {
+    public var inverse: Self {
         switch self {
         case let .AddCol(i, j, r):
             return .AddCol(at: i, to: j, mul: -r)
@@ -82,7 +90,7 @@ internal enum ColElementaryOperation<R: Ring> {
         }
     }
     
-    var transposed: RowElementaryOperation<R> {
+    public var transposed: RowElementaryOperation<R> {
         switch self {
         case let .AddCol(i, j, r):
             return .AddRow(at: i, to: j, mul: r)
@@ -93,7 +101,7 @@ internal enum ColElementaryOperation<R: Ring> {
         }
     }
     
-    var asRowOperation: RowElementaryOperation<R> {
+    public var asRowOperation: RowElementaryOperation<R> {
         switch self {
         case let .AddCol(at: i, to: j, mul: a):
             return .AddRow(at: j, to: i, mul: a)
