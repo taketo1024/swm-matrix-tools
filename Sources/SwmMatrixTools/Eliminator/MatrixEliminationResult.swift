@@ -322,9 +322,10 @@ private extension MatrixEliminationResult {
     }
     
     private func composeRowOps<n, m, S>(size n: Int, ops: S, restrictedToCols colRange: Range<Int>) -> MatrixIF<Impl, n, m> where S: Sequence, S.Element == RowElementaryOperation<R> {
-        MatrixEliminationWorker(
+        .init(
             size: (n, colRange.endIndex - colRange.startIndex),
             entries: colRange.map { i in (i, i - colRange.startIndex, .identity) }
-        ).applyAll(ops).resultAs(MatrixIF.self)
+        )
+        .appliedRowOperations(ops)
     }
 }

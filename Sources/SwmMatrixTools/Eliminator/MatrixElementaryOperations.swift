@@ -110,3 +110,18 @@ public enum ColElementaryOperation<R: Ring>: ElementaryOperation {
         }
     }
 }
+
+extension Matrix {
+    public func appliedRowOperations<S>(_ ops: S) -> Self
+    where S: Sequence, S.Element == RowElementaryOperation<BaseRing> {
+        MatrixEliminationWorker(
+            size: size,
+            entries: nonZeroEntries
+        ).applyAll(ops).resultAs(Self.self)
+    }
+    
+    public func appliedColOperations<S>(_ ops: S) -> Self
+    where S: Sequence, S.Element == ColElementaryOperation<BaseRing> {
+        transposed.appliedRowOperations(ops.map{ $0.transposed }).transposed
+    }
+}
