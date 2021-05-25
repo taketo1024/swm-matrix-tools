@@ -8,95 +8,53 @@
 
 import SwmCore
 
-public enum MatrixEliminationForm {
-    case none
-    case RowEchelon
-    case ColEchelon
-    case RowHermite
-    case ColHermite
-    case Diagonal
-    case Smith
-}
-
 extension MatrixIF where BaseRing: EuclideanRing {
     public func eliminate(form: MatrixEliminationForm = .Diagonal) -> MatrixEliminationResult<Impl, n, m> {
-        let (type, transpose): (MatrixEliminator<BaseRing>.Type, Bool) = {
-            switch form {
-            case .RowEchelon:
-                return (RowEchelonEliminator.self, false)
-            case .ColEchelon:
-                return (RowEchelonEliminator.self, true)
-            case .RowHermite:
-                return (ReducedRowEchelonEliminator.self, false)
-            case .ColHermite:
-                return (ReducedRowEchelonEliminator.self, true)
-            case .Diagonal:
-                return (DiagonalEliminator.self, false)
-            case .Smith:
-                return (SmithEliminator.self, false)
-            default:
-                return (MatrixEliminator.self, false)
-            }
-        }()
-        
+        let (type, transpose) = eliminatorType(form)
         let worker = !transpose
             ? MatrixEliminationWorker(self)
-            : MatrixEliminationWorker(self.transposed)
-        let elim = type.init(worker: worker, transposed: transpose)
-        elim.run()
+            : MatrixEliminationWorker(self.transposed) // TODO directly pass tranposed entries
         
-        return MatrixEliminationResult(elim)
+        let e = type.init(worker: worker)
+        e.run()
+        
+        return !transpose
+            ? e.result(as: MatrixEliminationResult.self)
+            : e.result(as: MatrixEliminationResult.self).transposed
+    }
+    
+    private func eliminatorType(_ form: MatrixEliminationForm) -> (MatrixEliminator<BaseRing>.Type, Bool) {
+        switch form {
+        case .RowEchelon:
+            return (RowEchelonEliminator.self, false)
+        case .ColEchelon:
+            return (RowEchelonEliminator.self, true)
+        case .RowHermite:
+            return (ReducedRowEchelonEliminator.self, false)
+        case .ColHermite:
+            return (ReducedRowEchelonEliminator.self, true)
+        case .Diagonal:
+            return (DiagonalEliminator.self, false)
+        case .Smith:
+            return (SmithEliminator.self, false)
+        default:
+            return (MatrixEliminator.self, false)
+        }
     }
 }
 
 public class MatrixEliminator<R: Ring> {
     let worker: MatrixEliminationWorker<R>
-    var transposed: Bool
     var debug: Bool = false
     var aborted: Bool = false
     
-    private var rowOps_: [RowElementaryOperation<R>]
-    private var colOps_: [ColElementaryOperation<R>]
+    private var rowOps: [RowElementaryOperation<R>]
+    private var colOps: [ColElementaryOperation<R>]
     
-    required init(worker: MatrixEliminationWorker<R>, transposed: Bool = false) {
+    required init(worker: MatrixEliminationWorker<R>) {
         self.worker = worker
-        self.rowOps_ = []
-        self.colOps_ = []
-        self.transposed = transposed
-    }
-    
-    public final var size: MatrixSize {
-        !transposed
-            ? worker.size
-            : (worker.size.cols, worker.size.rows)
-    }
-    
-    public var entries: AnySequence<MatrixEntry<R>> {
-        !transposed
-            ? worker.entries
-            : AnySequence(worker.entries.lazy.map{ (i, j, a) in (j, i, a) })
-    }
-    
-    public var headEntries: [MatrixEntry<R>] {
-        !transposed
-            ? worker.headEntries
-            : worker.headEntries.map{ (i, j, a) in (j, i, a) }
-    }
-    
-    public func resultAs<Impl, n, m>(_ type: MatrixIF<Impl, n, m>.Type) -> MatrixIF<Impl, n, m> where Impl.BaseRing == R {
-        .init(size: size, entries: entries)
-    }
-    
-    var rowOps: [RowElementaryOperation<R>] {
-        !transposed
-            ? rowOps_
-            : colOps_.map{ $0.transposed }
-    }
-    
-    var colOps: [ColElementaryOperation<R>] {
-        !transposed
-            ? colOps_
-            : rowOps_.map{ $0.transposed }
+        self.rowOps = []
+        self.colOps = []
     }
     
     public final func run() {
@@ -120,11 +78,22 @@ public class MatrixEliminator<R: Ring> {
         
         finalize()
         
-        log("Done:  \(self), \(rowOps_.count + colOps_.count) steps")
+        log("Done:  \(self), \(rowOps.count + colOps.count) steps")
         
         if debug {
             printCurrentMatrix()
         }
+    }
+    
+    public func result<Impl, n, m>(as: MatrixEliminationResult<Impl, n, m>.Type) -> MatrixEliminationResult<Impl, n, m> where Impl.BaseRing == R {
+        .init(
+            form: form,
+            size: worker.size,
+            entries: worker.entries,
+            headEntries: worker.headEntries,
+            rowOps: rowOps,
+            colOps: colOps
+        )
     }
     
     public var description: String {
@@ -133,10 +102,20 @@ public class MatrixEliminator<R: Ring> {
     
     // MARK: Internal methods
 
-    final func subrun(_ e: MatrixEliminator<R>) {
+    final func subrun(_ type: MatrixEliminator<R>.Type, transpose: Bool = false) {
+        let e = type.init(worker: worker)
+        if transpose {
+            e.transpose()
+        }
+        
         e.run()
-        rowOps_ += e.rowOps
-        colOps_ += e.colOps
+        
+        if transpose {
+            e.transpose()
+        }
+        
+        rowOps += e.rowOps
+        colOps += e.colOps
     }
     
     final func abort() {
@@ -149,24 +128,24 @@ public class MatrixEliminator<R: Ring> {
     }
 
     final func append(_ s: RowElementaryOperation<R>) {
-        rowOps_.append(s)
+        rowOps.append(s)
         log("\(s)")
     }
     
     final func append(_ s: ColElementaryOperation<R>) {
-        colOps_.append(s)
+        colOps.append(s)
         log("\(s)")
     }
     
     final func append(_ s: [RowElementaryOperation<R>]) {
-        rowOps_.append(contentsOf: s)
+        rowOps.append(contentsOf: s)
         log(s.map{ "\($0)"}.joined(separator: "\n"))
     }
     
     final func transpose() {
         log("Transpose: \(self)")
         worker.transpose()
-        (rowOps_, colOps_) = (colOps_.map{ $0.transposed }, rowOps_.map{ $0.transposed })
+        (rowOps, colOps) = (colOps.map{ $0.transposed }, rowOps.map{ $0.transposed })
     }
     
     final func log(_ msg: @autoclosure () -> String) {
@@ -176,11 +155,12 @@ public class MatrixEliminator<R: Ring> {
     }
     
     final func printCurrentMatrix() {
+        let (size, entries) = (worker.size, worker.entries)
         if size.rows > 100 || size.cols > 100 {
             return
         }
         
-        print("\n", resultAs(AnySizeMatrix.self).detailDescription, "\n")
+        print("\n", AnySizeMatrix(size: size, entries: entries).detailDescription, "\n")
     }
 
     // MARK: Methods to be overridden

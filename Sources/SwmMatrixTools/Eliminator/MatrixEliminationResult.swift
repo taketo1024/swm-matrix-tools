@@ -10,37 +10,39 @@ import SwmCore
 public struct MatrixEliminationResult<Impl: MatrixImpl, n: SizeType, m: SizeType> {
     public typealias R = Impl.BaseRing
     
-    private let eliminator: MatrixEliminator<R>
-    public init(_ eliminator: MatrixEliminator<R>) {
-        self.eliminator = eliminator
+    public let form: MatrixEliminationForm
+    public let size: MatrixSize
+    public let entries: AnySequence<MatrixEntry<R>>
+    public let headEntries: AnySequence<MatrixEntry<R>>
+
+    let rowOps: [RowElementaryOperation<R>]
+    let colOps: [ColElementaryOperation<R>]
+    
+    internal init(form: MatrixEliminationForm, size: MatrixSize, entries: AnySequence<MatrixEntry<R>>, headEntries: AnySequence<MatrixEntry<R>>, rowOps: [RowElementaryOperation<R>], colOps: [ColElementaryOperation<R>]) {
+        self.form = form
+        self.size = size
+        self.entries = entries
+        self.headEntries = headEntries
+        self.rowOps = rowOps
+        self.colOps = colOps
     }
     
-    public var form: MatrixEliminationForm {
-        eliminator.form
-    }
-    
-    public var size: MatrixSize {
-        eliminator.size
+    public var transposed: MatrixEliminationResult<Impl, m, n> {
+        func transpose<S: Sequence>(_ entries: S) -> AnySequence<MatrixEntry<R>> where S.Element == MatrixEntry<R> {
+            AnySequence(entries.lazy.map{ (i, j, a) in (j, i, a) })
+        }
+        return .init(
+            form: form.transposed,
+            size: (size.cols, size.rows),
+            entries: transpose(entries),
+            headEntries: transpose(headEntries),
+            rowOps: colOps.map{ $0.transposed },
+            colOps: rowOps.map{ $0.transposed }
+        )
     }
     
     public var result: MatrixIF<Impl, n, m> {
-        eliminator.resultAs(MatrixIF.self)
-    }
-    
-    var rowOps: [RowElementaryOperation<R>] {
-        eliminator.rowOps
-    }
-    
-    var colOps: [ColElementaryOperation<R>] {
-        eliminator.colOps
-    }
-    
-    var rowOpsInverse: [RowElementaryOperation<R>] {
-        rowOps.reversed().map{ $0.inverse }
-    }
-
-    var colOpsInverse: [ColElementaryOperation<R>] {
-        colOps.reversed().map{ $0.inverse }
+        .init(size: size, entries: entries)
     }
     
     public var isSquare: Bool {
@@ -48,19 +50,19 @@ public struct MatrixEliminationResult<Impl: MatrixImpl, n: SizeType, m: SizeType
     }
     
     public var isDiagonal: Bool {
-        eliminator.entries.allSatisfy { (i, j, _) in i == j }
+        entries.allSatisfy { (i, j, _) in i == j }
     }
     
     public var isIdentity: Bool {
-        isSquare && eliminator.entries.allSatisfy { (i, j, a) in i == j && a.isIdentity }
+        isSquare && entries.allSatisfy { (i, j, a) in i == j && a.isIdentity }
     }
     
     public var diagonalEntries: [R] {
-        eliminator.headEntries.map{ $0.value }
+        headEntries.map{ $0.value }
     }
     
     public var rank: Int {
-        eliminator.headEntries.count
+        headEntries.count
     }
     
     public var nullity: Int {
@@ -183,6 +185,14 @@ public struct MatrixEliminationResult<Impl: MatrixImpl, n: SizeType, m: SizeType
     public var imageTransitionMatrix: MatrixIF<Impl, anySize, n> {
         assert(isDiagonal)
         return left(restrictedToRows: 0 ..< rank)
+    }
+    
+    var rowOpsInverse: [RowElementaryOperation<R>] {
+        rowOps.reversed().map{ $0.inverse }
+    }
+
+    var colOpsInverse: [ColElementaryOperation<R>] {
+        colOps.reversed().map{ $0.inverse }
     }
 }
 

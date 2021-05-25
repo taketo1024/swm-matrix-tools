@@ -23,6 +23,7 @@ internal final class MatrixEliminationWorker<R: Ring> {
         self.init(data: MatrixEliminationData(size: size, entries: entries))
     }
     
+    // TODO remove this
     convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>) where Impl.BaseRing == R {
         self.init(size: A.size, entries: A.nonZeroEntries)
     }
@@ -49,12 +50,8 @@ internal final class MatrixEliminationWorker<R: Ring> {
         data.entries
     }
     
-    var headEntries: [MatrixEntry<R>] {
-        data.rows.enumerated().compactMap { (i, row) in
-            row.headElement.flatMap { (j, a) in
-                (i, j, a)
-            }
-        }
+    var headEntries: AnySequence<MatrixEntry<R>>{
+        data.headEntries
     }
     
     func headColEntries(in j: Int) -> [ColEntry<R>] {

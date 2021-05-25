@@ -20,14 +20,12 @@ internal final class DiagonalEliminator<R: EuclideanRing>: MatrixEliminator<R> {
     }
     
     override func iteration() {
-        subrun(RowEchelonEliminator(worker: worker))
+        subrun(RowEchelonEliminator<R>.self)
         
         if isDone() {
             return
         }
         
-        worker.transpose()
-        subrun(RowEchelonEliminator(worker: worker, transposed: true))
-        worker.transpose()
+        subrun(RowEchelonEliminator<R>.self, transpose: true)
     }
 }

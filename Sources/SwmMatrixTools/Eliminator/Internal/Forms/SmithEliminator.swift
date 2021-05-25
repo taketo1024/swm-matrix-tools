@@ -17,7 +17,7 @@ internal final class SmithEliminator<R: EuclideanRing>: MatrixEliminator<R> {
     }
     
     override func prepare() {
-        subrun(DiagonalEliminator(worker: worker))
+        subrun(DiagonalEliminator.self)
         diagonals = worker.headEntries.map { $0.value }
     }
     

@@ -28,6 +28,14 @@ internal final class MatrixEliminationData<R: Ring> {
         })
     }
     
+    var headEntries: AnySequence<MatrixEntry<R>> {
+        AnySequence(rows.enumerated().lazy.compactMap { (i, row) in
+            row.headElement.flatMap { (j, a) in
+                (i, j, a)
+            }
+        })
+    }
+    
     @inlinable
     func row(_ i: Int) -> Row {
         rows[i]

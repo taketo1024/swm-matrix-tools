@@ -13,7 +13,7 @@ internal class RowEchelonEliminator<R: EuclideanRing>: MatrixEliminator<R> {
     var currentCol = 0
     
     override var form: MatrixEliminationForm {
-        !transposed ? .RowEchelon : .ColEchelon
+        .RowEchelon
     }
     
     override func isDone() -> Bool {
@@ -100,7 +100,7 @@ internal class RowEchelonEliminator<R: EuclideanRing>: MatrixEliminator<R> {
 
 internal class ReducedRowEchelonEliminator<R: EuclideanRing>: RowEchelonEliminator<R> {
     override var form: MatrixEliminationForm {
-        !transposed ? .RowHermite : .ColHermite
+        .RowHermite
     }
 
     override func reduceCurrentCol() {
