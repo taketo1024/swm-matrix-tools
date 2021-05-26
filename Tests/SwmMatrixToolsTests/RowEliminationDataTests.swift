@@ -6,7 +6,8 @@
 //
 
 import XCTest
-@testable import SwmCore
+import SwmCore
+@testable import SwmMatrixTools
 
 class RowEliminationDataTests: XCTestCase {
     private typealias R = 𝐙

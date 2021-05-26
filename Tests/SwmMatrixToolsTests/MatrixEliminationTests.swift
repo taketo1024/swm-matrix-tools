@@ -7,7 +7,8 @@
 //
 
 import XCTest
-@testable import SwmCore
+import SwmCore
+@testable import SwmMatrixTools
 
 class MatrixEliminationTests: XCTestCase {
     
@@ -81,38 +82,6 @@ class MatrixEliminationTests: XCTestCase {
         
         XCTAssertEqual(E.right * E.rightInverse, M5.identity)
         XCTAssertEqual(E.rightInverse * E.right, M5.identity)
-    }
-    
-    func testLeftRestriction() {
-        let A: M5 = [2, -1, -2, -2, -3, 1, 2, -1, 1, -1, 2, -2, -4, -3, -6, 1, 7, 1, 5, 3, 1, -12, -6, -10, -11]
-        let E = A.eliminate(form: .Smith)
-        
-        let P = E.left
-        XCTAssertEqual(E.left(restrictedToRows: 2 ..< 4), P.submatrix(rowRange: 2 ..< 4))
-    }
-    
-    func testLeftInverseRestriction() {
-        let A: M5 = [2, -1, -2, -2, -3, 1, 2, -1, 1, -1, 2, -2, -4, -3, -6, 1, 7, 1, 5, 3, 1, -12, -6, -10, -11]
-        let E = A.eliminate(form: .Smith)
-        
-        let P = E.leftInverse
-        XCTAssertEqual(E.leftInverse(restrictedToCols: 2 ..< 4), P.submatrix(colRange: 2 ..< 4))
-    }
-    
-    func testRightRestriction() {
-        let A: M5 = [2, -1, -2, -2, -3, 1, 2, -1, 1, -1, 2, -2, -4, -3, -6, 1, 7, 1, 5, 3, 1, -12, -6, -10, -11]
-        let E = A.eliminate(form: .Smith)
-        
-        let Q = E.right
-        XCTAssertEqual(E.right(restrictedToCols: 2 ..< 4), Q.submatrix(colRange: 2 ..< 4))
-    }
-    
-    func testRightInverseRestriction() {
-        let A: M5 = [2, -1, -2, -2, -3, 1, 2, -1, 1, -1, 2, -2, -4, -3, -6, 1, 7, 1, 5, 3, 1, -12, -6, -10, -11]
-        let E = A.eliminate(form: .Smith)
-        
-        let Q = E.rightInverse
-        XCTAssertEqual(E.rightInverse(restrictedToRows: 2 ..< 4), Q.submatrix(rowRange: 2 ..< 4))
     }
     
     func testPAQ() {
@@ -205,9 +174,6 @@ class MatrixEliminationTests: XCTestCase {
         
         XCTAssertTrue(K.size == (2, 1))
         XCTAssertTrue((A * K).isZero)
-
-        let T = E.kernelTransitionMatrix
-        XCTAssertEqual(T * K, AnySizeMatrix(size:(1, 1), grid: [1]))
     }
     
     func testKernel2() {
@@ -217,10 +183,6 @@ class MatrixEliminationTests: XCTestCase {
         
         XCTAssertTrue(K.size == (15, 10))
         XCTAssertEqual(A * K, AnySizeMatrix.zero(size: (6, 10)))
-        
-        let T = E.kernelTransitionMatrix
-        XCTAssertTrue(T.size == (10, 15))
-        XCTAssertEqual(T * K, AnySizeMatrix.identity(size: (10, 10)))
     }
 
     public func testImage() {
@@ -230,10 +192,6 @@ class MatrixEliminationTests: XCTestCase {
         
         XCTAssertTrue(I.size == (2, 1))
         XCTAssertEqual(I.serialize(), [2, 2])
-        
-        let T = E.imageTransitionMatrix
-        XCTAssertTrue(T.size == (1, 2))
-        XCTAssertEqual(T * I, AnySizeMatrix(size:(1, 1), grid: [2]))
     }
     
     public func testDet() {
@@ -250,16 +208,16 @@ class MatrixEliminationTests: XCTestCase {
         let E = A.eliminate()
         let y = A * Vector4(grid: [1,2,3,4])
         
-        if let x = E.invert(y) {
+        if let x = E.solve(y) {
             XCTAssertEqual(A * x, y)
         } else {
             XCTFail()
         }
         
         let y2: ColVector<𝐙, _6> = [243996, -422477, 555238, -482263, 689731, 1363066]
-        XCTAssertNil(E.invert(y2))
+        XCTAssertNil(E.solve(y2))
         
         let y3: ColVector<𝐙, _6> = [520530, -901291, 1184519, -1028837, 1471438, 2907903]
-        XCTAssertNil(E.invert(y3))
+        XCTAssertNil(E.solve(y3))
     }
 }
