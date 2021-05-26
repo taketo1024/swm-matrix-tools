@@ -7,6 +7,41 @@
 
 import SwmCore
 
+extension MatrixIF where BaseRing: EuclideanRing {
+    public func eliminate(form: MatrixEliminationForm = .Diagonal) -> MatrixEliminationResult<Impl, n, m> {
+        let (type, transpose) = eliminatorType(form)
+        let worker = !transpose
+            ? MatrixEliminationWorker(self)
+            : MatrixEliminationWorker(self.transposed) // TODO directly pass tranposed entries
+        
+        let e = type.init(worker: worker)
+        e.run()
+        
+        return !transpose
+            ? e.result(as: MatrixEliminationResult.self)
+            : e.result(as: MatrixEliminationResult.self).transposed
+    }
+    
+    private func eliminatorType(_ form: MatrixEliminationForm) -> (MatrixEliminator<BaseRing>.Type, Bool) {
+        switch form {
+        case .RowEchelon:
+            return (RowEchelonEliminator.self, false)
+        case .ColEchelon:
+            return (RowEchelonEliminator.self, true)
+        case .RowHermite:
+            return (ReducedRowEchelonEliminator.self, false)
+        case .ColHermite:
+            return (ReducedRowEchelonEliminator.self, true)
+        case .Diagonal:
+            return (DiagonalEliminator.self, false)
+        case .Smith:
+            return (SmithEliminator.self, false)
+        default:
+            return (MatrixEliminator.self, false)
+        }
+    }
+}
+
 extension MatrixIF {
     public static func rowUnits<S>(size: MatrixSize, indices: S) -> Self
     where S: Sequence, S.Element == Int {
