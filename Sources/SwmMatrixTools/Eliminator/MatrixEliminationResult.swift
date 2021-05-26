@@ -153,7 +153,7 @@ extension MatrixEliminationResult {
         case .Diagonal, .Smith, .ColHermite, .ColEchelon:
             return .rowUnits(
                 size: (m, m - r),
-                indices: (m - r ..< m)
+                indices: (0 ..< m - r)
             )
             .appliedRowOperations(
                 colOps.reversed().map{ $0.asRowOperation }
