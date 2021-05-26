@@ -151,9 +151,9 @@ extension MatrixEliminationResult {
         
         switch form {
         case .Diagonal, .Smith, .ColHermite, .ColEchelon:
-            return .rowUnits(
+            return .colUnits(
                 size: (m, m - r),
-                indices: (0 ..< m - r)
+                indices: (r ..< m)
             )
             .appliedRowOperations(
                 colOps.reversed().map{ $0.asRowOperation }

@@ -10,7 +10,8 @@ import SwmCore
 extension MatrixIF {
     public static func rowUnits<S>(size: MatrixSize, indices: S) -> Self
     where S: Sequence, S.Element == Int {
-        .init(
+        assert(size.rows == indices.count)
+        return .init(
             size: size,
             entries: indices.enumerated().map{ (i, idx) in (i, idx, .identity) }
         )
@@ -18,7 +19,8 @@ extension MatrixIF {
     
     public static func colUnits<S>(size: MatrixSize, indices: S) -> Self
     where S: Sequence, S.Element == Int {
-        .init(
+        assert(size.cols == indices.count)
+        return .init(
             size: size,
             entries: indices.enumerated().map{ (j, idx) in (idx, j, .identity) }
         )
