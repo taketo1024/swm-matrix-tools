@@ -17,6 +17,8 @@ public struct MatrixEliminationResult<Impl: MatrixImpl, n: SizeType, m: SizeType
     public let rowOps: [RowElementaryOperation<R>]
     public let colOps: [ColElementaryOperation<R>]
     
+    private let cache: Cache<String, MatrixIF<Impl, anySize, anySize>> = .empty
+    
     public init(form: MatrixEliminationForm, size: MatrixSize, entries: AnySequence<MatrixEntry<R>>, headEntries: AnySequence<MatrixEntry<R>>, rowOps: [RowElementaryOperation<R>], colOps: [ColElementaryOperation<R>]) {
         self.form = form
         self.size = size
@@ -41,7 +43,9 @@ public struct MatrixEliminationResult<Impl: MatrixImpl, n: SizeType, m: SizeType
     }
     
     public var result: MatrixIF<Impl, n, m> {
-        .init(size: size, entries: entries)
+        cache.getOrSet(key: "result") {
+            .init(size: size, entries: entries)
+        }.as(MatrixIF.self)
     }
     
     public var isSquare: Bool {
@@ -66,23 +70,31 @@ public struct MatrixEliminationResult<Impl: MatrixImpl, n: SizeType, m: SizeType
     }
     
     public var left: MatrixIF<Impl, n, n> {
-        .identity(size: (size.rows, size.rows))
-            .appliedRowOperations(rowOps)
+        cache.getOrSet(key: "left") {
+            .identity(size: (size.rows, size.rows))
+                .appliedRowOperations(rowOps)
+        }.as(MatrixIF.self)
     }
     
     public var leftInverse: MatrixIF<Impl, n, n> {
-        .identity(size: (size.rows, size.rows))
-            .appliedRowOperations(rowOpsInverse)
+        cache.getOrSet(key: "leftInverse") {
+            .identity(size: (size.rows, size.rows))
+                .appliedRowOperations(rowOpsInverse)
+        }.as(MatrixIF.self)
     }
     
     public var right: MatrixIF<Impl, m, m> {
-        .identity(size: (size.cols, size.cols))
-            .appliedColOperations(colOps)
+        cache.getOrSet(key: "right") {
+            .identity(size: (size.cols, size.cols))
+                .appliedColOperations(colOps)
+        }.as(MatrixIF.self)
     }
     
     public var rightInverse: MatrixIF<Impl, m, m> {
-        .identity(size: (size.cols, size.cols))
-            .appliedColOperations(colOpsInverse)
+        cache.getOrSet(key: "rightInverse") {
+            .identity(size: (size.cols, size.cols))
+                .appliedColOperations(colOpsInverse)
+        }.as(MatrixIF.self)
     }
     
     public var rowOpsInverse: [RowElementaryOperation<R>] {
@@ -131,29 +143,13 @@ extension MatrixEliminationResult where R: EuclideanRing {
 
 extension MatrixEliminationResult {
     
-    // Returns the matrix B consisting of the basis vectors of Im(A).
-    // With
-    //
-    //     P * A * Q = [ L  | O   ]
-    //                 [ L' | O_k ]
-    //
-    // Im(A) is spanned by [L; *].
-    //
-    //  => B = P^-1 * [L; L'].
-    //
+    // Returns a matrix consisting of a basis (col-vectors) of Im(A).
     
     public var imageMatrix: MatrixIF<Impl, n, anySize> {
-        let (r, n) = (rank, size.rows)
-        if r == 0 {
-            return .zero(size: (n, 0))
-        }
-        
         switch form {
         case .Diagonal, .Smith, .ColHermite, .ColEchelon:
-            return result
-                .submatrix(colRange: 0 ..< r)
-                .appliedRowOperations(rowOpsInverse)
-
+            return imageMatrix_colEchelon
+            
         case .RowHermite, .RowEchelon:
             fatalError("not supported yet.")
             
@@ -162,74 +158,56 @@ extension MatrixEliminationResult {
         }
     }
     
-    // Returns a matrix Z consisting of the basis vectors of Ker(A).
-    // With k = m - rank,
-    //
-    //     P * A * Q = [ L  | O   ]
-    //                 [ L' | O_k ]
-    //
-    //  => Z = Q * [O; I_k]
-    //       = (Q1 ... Qn) * [O; I_k]
-    //
+    // With PAQ = [L|O], Im(PA) is spanned by L.
+    // => B = P^-1 * L.
+    
+    private var imageMatrix_colEchelon: MatrixIF<Impl, n, anySize> {
+        let A = result // must obtain outside cache-sync
+        let Pinv = leftInverse
+        
+        return cache.getOrSet(key: "image") {
+            let (r, n) = (rank, size.rows)
+            if r == 0 {
+                return .zero(size: (n, 0))
+            }
+            
+            let L = A.submatrix(colRange: 0 ..< r)
+            return (Pinv * L).asAnySizeMatrix
+            
+        }.as(MatrixIF.self)
+    }
+    
+    // Returns a matrix Z consisting of a basis vectors of Ker(A).
     
     public var kernelMatrix: MatrixIF<Impl, m, anySize>  {
-        let (r, m) = (rank, size.cols)
-        if r == m {
-            return .zero(size: (m, 0))
-        }
-        
         switch form {
         case .Diagonal, .Smith, .ColHermite, .ColEchelon:
-            return .colUnits(
+            return kernelMatrix_colEchelon
+            
+        case .RowHermite, .RowEchelon:
+            fatalError("not supported yet.")
+            
+        default:
+            fatalError("unavailable.")
+        }
+    }
+    
+    private var kernelMatrix_colEchelon: MatrixIF<Impl, m, anySize>  {
+        let Q = right // must obtain outside cache-sync
+        
+        return cache.getOrSet(key: "kernel") {
+            let (r, m) = (rank, size.cols)
+            if r == m {
+                return .zero(size: (m, 0))
+            }
+            
+            let I = MatrixIF<Impl, m, anySize>.colUnits(
                 size: (m, m - r),
                 indices: (r ..< m)
             )
-            .appliedRowOperations(
-                colOps.reversed().map{ $0.asRowOperation }
-            )
+            return (Q * I).asAnySizeMatrix
             
-        case .RowHermite, .RowEchelon:
-            fatalError("not supported yet.")
-            
-        default:
-            fatalError("unavailable.")
-        }
-    }
-    
-    // Returns a matrix C consisting of the basis vectors of the free part of Coker(A).
-    //
-    //     P * A * Q = [ L | O   ]
-    //                 [ * | O_k ]
-    //
-    //  =>  C_f = P^-1 * S,
-    //      where S = (ei1 ... eil) consists of unit col-vectors that are complementary w.r.t. L.
-    
-    public var freeCokernelMatrix: MatrixIF<Impl, n, anySize> {
-        let (r, n) = (rank, size.rows)
-        if r == n {
-            return .zero(size: (n, 0))
-        }
-        
-        switch form {
-        case .Diagonal, .Smith, .ColHermite, .ColEchelon:
-            return .colUnits(
-                size: (n, n - r),
-                indices: complementRowsOfL
-            )
-            .appliedRowOperations(rowOpsInverse)
-            
-        case .RowHermite, .RowEchelon:
-            fatalError("not supported yet.")
-            
-        default:
-            fatalError("unavailable.")
-        }
-    }
-    
-    fileprivate var complementRowsOfL: [Int] {
-        let n = size.rows
-        let occupied = Set(headEntries.map{ $0.row })
-        return (0 ..< n).subtract(occupied)
+        }.as(MatrixIF.self)
     }
 }
 
@@ -244,12 +222,14 @@ extension MatrixEliminationResult where R: EuclideanRing {
     //
     // where y = Q^{-1}x <==> x = Qy.
     
-    public func solve(_ b: MatrixIF<Impl, n, _1>) -> MatrixIF<Impl, m, _1>? {
+    public func solve(_ b: ColVectorIF<Impl, n>) -> ColVectorIF<Impl, m>? {
         assert(isDiagonal) // TODO support non diagonal cases.
         
         let n = size.rows
         let r = rank
-        let Pb = b.appliedRowOperations(rowOps)
+        
+        let P = left
+        let Pb = P * b
         let diag = headEntries.map{ $0.value }
         
         if !Pb[r ..< n].isZero {
@@ -262,16 +242,14 @@ extension MatrixEliminationResult where R: EuclideanRing {
             return nil
         }
         
-        let y = MatrixIF<Impl, m, _1>(size: (size.cols, 1)) { setEntry in
+        let Q = right
+        let y = ColVectorIF<Impl, m>(size: (size.cols, 1)) { setEntry in
             diag.enumerated().forEach { (i, d) in
                 setEntry(i, 0, Pb[i] / d)
             }
         }
         
-        // return Qy
-        return y.appliedRowOperations(
-            colOps.reversed().map{ $0.asRowOperation }
-        )
+        return Q * y
     }
     
     // Given z \in Span(Z), solve Zx = z.
@@ -283,110 +261,15 @@ extension MatrixEliminationResult where R: EuclideanRing {
     //
     //   [0; x] = (Qn^-1 ... Q1^-1) z.
     //
-    public func solveKernel(_ z: ColVector<R, m>) -> AnySizeVector<R>? {
+    public func solveKernel(_ z: ColVectorIF<Impl, m>) -> ColVectorIF<Impl, anySize>? {
         assert(z.size.rows == size.cols)
         
         let (r, m) = (rank, size.cols)
-        let w = z.appliedRowOperations(colOps.map{ $0.inverse.asRowOperation })
+        let Qinv = rightInverse
+        let w = Qinv * z
+        
         if w[0 ..< r].isZero {
             return w[r ..< m]
-        } else {
-            return nil
-        }
-    }
-    
-    // Given z \in Span(C_f), solve C_f x = z.
-    // We have
-    //
-    //   C_f x = P^-1 * Sx,
-    //
-    // so it suffices to solve
-    //
-    //   Sx = Σ_j x_j e_ij = Pz.
-    //
-    public func solveFreeCokernel(_ z: ColVector<R, n>) -> AnySizeVector<R>? {
-        assert(z.size.rows == size.rows)
-        
-        let indices = complementRowsOfL
-        let l = indices.count // n - rank
-        
-        let w = z.appliedRowOperations(rowOps)
-        if w.nonZeroColEntries.map( {$0.row} ).subtract(Set(indices)).isEmpty {
-            return .init(
-                size: l,
-                colEntries: indices.enumerated().map{ (j, i) in (j, w[i]) }
-            )
-        } else {
-            return nil
-        }
-    }
-}
-
-// MARK: SNF specific
-
-extension MatrixEliminationResult where R: EuclideanRing {
-    public var divisors: [R] {
-        guard form == .Smith else {
-            fatalError("unavailable")
-        }
-        
-        return headEntries.map{ $0.value }
-    }
-
-    public var nonUnitDivisors: [R] {
-        guard form == .Smith else {
-            fatalError("unavailable")
-        }
-        
-        return divisors.exclude{ $0.isIdentity }
-    }
-    
-    public var torCokernelMatrix: MatrixIF<Impl, n, anySize> {
-        guard form == .Smith else {
-            fatalError("unavailable")
-        }
-        
-        let n = size.rows
-        let r = rank
-        let l = nonUnitDivisors.count
-
-        if l == 0 {
-            return .zero(size: (n, 0))
-        }
-        
-        return .colUnits(
-            size: (n, l),
-            indices: (r - l ..< r)
-        )
-        .appliedRowOperations(rowOpsInverse)
-    }
-    
-    // Given z \in Span(C_t), solve C_t x = z.
-    // We have
-    //
-    //   C_t x = P^-1 * [0; x; 0],
-    //
-    // so it suffices to solve
-    //
-    //   [0; x; 0] = Pz.
-    //
-    public func solveTorCokernel(_ z: ColVector<R, n>) -> ColVector<R, anySize>? {
-        guard form == .Smith else {
-            fatalError("unavailable")
-        }
-        
-        assert(z.size.rows == size.rows)
-        
-        let n = size.rows
-        let r = rank
-        let s = r - nonUnitDivisors.count
-        
-        let w = z.appliedRowOperations(rowOps)
-        if w[0 ..< s].isZero && w[r ..< n].isZero {
-            let d = divisors.exclude{ $0.isIdentity }
-            return w[s ..< r].mapNonZeroEntries {
-                (i, _, a) in a % d[i]
-            }
         } else {
             return nil
         }
