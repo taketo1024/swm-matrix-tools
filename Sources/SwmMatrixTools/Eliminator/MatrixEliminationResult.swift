@@ -192,6 +192,9 @@ extension MatrixEliminationResult {
         }
     }
     
+    // With PAQ = [L|O], Ker(AQ) is spanned by [O|I].
+    // => Ker(A) = Q * [O|I].
+    
     private var kernelMatrix_colEchelon: MatrixIF<Impl, m, anySize>  {
         let Q = right // must obtain outside cache-sync
         
