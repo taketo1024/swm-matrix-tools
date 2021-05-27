@@ -12,9 +12,9 @@ let package = Package(
     ],
     dependencies: [
         .package(
-            path: "../swm-core/"
-//            url: "https://github.com/taketo1024/swm-core.git",
-//            from: "1.0.1"
+            url: "https://github.com/taketo1024/swm-core.git",
+            from: "1.1.0"
+//            path: "../swm-core/"
         ),
     ],
     targets: [
