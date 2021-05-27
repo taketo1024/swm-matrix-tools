@@ -71,37 +71,41 @@ public struct MatrixEliminationResult<Impl: MatrixImpl, n: SizeType, m: SizeType
     
     public var left: MatrixIF<Impl, n, n> {
         cache.getOrSet(key: "left") {
-            .identity(size: (size.rows, size.rows))
+            AnySizeMatrixIF
+                .identity(size: (size.rows, size.rows))
                 .appliedRowOperations(rowOps)
         }.as(MatrixIF.self)
     }
     
     public var leftInverse: MatrixIF<Impl, n, n> {
         cache.getOrSet(key: "leftInverse") {
-            .identity(size: (size.rows, size.rows))
+            AnySizeMatrixIF
+                .identity(size: (size.rows, size.rows))
                 .appliedRowOperations(rowOpsInverse)
         }.as(MatrixIF.self)
     }
     
     public var right: MatrixIF<Impl, m, m> {
         cache.getOrSet(key: "right") {
-            .identity(size: (size.cols, size.cols))
+            AnySizeMatrixIF
+                .identity(size: (size.cols, size.cols))
                 .appliedColOperations(colOps)
         }.as(MatrixIF.self)
     }
     
     public var rightInverse: MatrixIF<Impl, m, m> {
         cache.getOrSet(key: "rightInverse") {
-            .identity(size: (size.cols, size.cols))
+            AnySizeMatrixIF
+                .identity(size: (size.cols, size.cols))
                 .appliedColOperations(colOpsInverse)
         }.as(MatrixIF.self)
     }
     
-    public var rowOpsInverse: [RowElementaryOperation<R>] {
+    private var rowOpsInverse: [RowElementaryOperation<R>] {
         rowOps.reversed().map{ $0.inverse }
     }
 
-    public var colOpsInverse: [ColElementaryOperation<R>] {
+    private var colOpsInverse: [ColElementaryOperation<R>] {
         colOps.reversed().map{ $0.inverse }
     }
 }
