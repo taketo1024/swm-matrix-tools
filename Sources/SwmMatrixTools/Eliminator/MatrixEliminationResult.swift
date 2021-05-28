@@ -108,6 +108,17 @@ public struct MatrixEliminationResult<Impl: MatrixImpl, n: SizeType, m: SizeType
     private var colOpsInverse: [ColElementaryOperation<R>] {
         colOps.reversed().map{ $0.inverse }
     }
+    
+    public func precompose(rowOps: [RowElementaryOperation<R>], colOps: [ColElementaryOperation<R>]) -> Self {
+        .init(
+            form: form,
+            size: size,
+            entries: entries,
+            headEntries: headEntries,
+            rowOps: rowOps + self.rowOps,
+            colOps: colOps + self.colOps
+        )
+    }
 }
 
 extension MatrixEliminationResult where n == m {
@@ -131,15 +142,8 @@ extension MatrixEliminationResult where n == m {
 extension MatrixEliminationResult where R: EuclideanRing {
     // eliminate again
     public func eliminate(form: MatrixEliminationForm = .Diagonal) -> MatrixEliminationResult<Impl, n, m> {
-        let e = result.eliminate(form: form)
-        return .init(
-            form: form,
-            size: size,
-            entries: e.entries,
-            headEntries: e.headEntries,
-            rowOps: rowOps + e.rowOps,
-            colOps: colOps + e.colOps
-        )
+        let e = result.eliminate(form: form, preprocess: false)
+        return e.precompose(rowOps: rowOps, colOps: colOps)
     }
 }
 
