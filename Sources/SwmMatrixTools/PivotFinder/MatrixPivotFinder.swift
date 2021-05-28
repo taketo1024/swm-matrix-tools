@@ -23,20 +23,16 @@ public final class MatrixPivotFinder<R: Ring> {
     typealias Row = MatrixEliminationData<R>.Row
     
     private let data: MatrixEliminationData<R>
-    private let rowWeights: [Double]
     private let sortedRows: [Int]   // indices of non-zero rows, sorted by weight.
     private var pivotRows: Set<Int> // Set(rows)
     private var pivots: [Int : Int] // [col : row]
     public  var debug: Bool = false
     
     internal init(data: MatrixEliminationData<R>) {
-        let rowWeights = data.rows.map { row in row.sum { $0.value.computationalWeight } }
-        
         self.data = data
-        self.rowWeights = rowWeights
         self.sortedRows = (0 ..< data.size.rows)
             .exclude{ i in data.row(i).isEmpty }
-            .sorted(by: { i in rowWeights[i] } )
+            .sorted(by: { i in data.rowWeight(i) } )
         self.pivots = [:]
         self.pivotRows = []
         
@@ -50,7 +46,7 @@ public final class MatrixPivotFinder<R: Ring> {
     
     public func findPivots() -> [(Int, Int)] {
         log("Start pivot search.")
-        log("size: \(data.size), density: \(data.initialDensity)")
+        log("size: \(data.size), density: \(data.density)")
         
 //        if size.rows < 100 && size.cols < 100 {
 //            log("before:\n\(data.resultAs(AnySizeMatrix.self).detailDescription)")
@@ -85,8 +81,8 @@ public final class MatrixPivotFinder<R: Ring> {
         var candidates: [Int : Int] = [:] // col -> row
         
         for i in sortedRows {
-            let j = data.row(i).headElement!.col
-            if shouldSet(row: i, prev: candidates[j]) {
+            let (j, a) = data.row(i).headElement!
+            if isCandidate(a) && !candidates.contains(key: j) {
                 candidates[j] = i
             }
         }
@@ -96,20 +92,6 @@ public final class MatrixPivotFinder<R: Ring> {
         }
         
         log("FL-pivots: \(candidates.count)")
-    }
-    
-    private func shouldSet(row i1: Int, prev i2: Int?) -> Bool {
-        guard let head1 = data.row(i1).headElement, isCandidate(head1.value) else {
-            return false
-        }
-        guard let i2 = i2, let head2 = data.row(i2).headElement else {
-            return true
-        }
-        
-        let w1 = head1.value.computationalWeight
-        let w2 = head2.value.computationalWeight
-        
-        return w1 * rowWeights[i1] < w2 * rowWeights[i2]
     }
     
     private func findFLColumnPivots() {

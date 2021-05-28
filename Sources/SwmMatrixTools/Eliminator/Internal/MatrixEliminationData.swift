@@ -10,25 +10,34 @@ import SwmCore
 internal final class MatrixEliminationData<R: Ring> {
     typealias Row = LinkedList<RowEntry<R>>
     
-    var size: MatrixSize
+    private(set) var size: MatrixSize
     private(set) var rows: [Row]
-    private(set) var rowWeights: [Int]!
+    private(set) var rowWeights: [Int]
     private var tracker: RowHeadTracker!
 
     init<S: Sequence>(size: MatrixSize, entries: S) where S.Element == MatrixEntry<R> {
         self.size = size
-        self.rows = Self.generateRows(rows: size.rows, entries: entries)
-        self.update()
+        self.rows = []
+        self.rowWeights = []
+        self.tracker = RowHeadTracker([])
+        self.setup(size: size, entries: entries)
     }
     
-    convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>) where Impl.BaseRing == R {
-        self.init(size: A.size, entries: A.nonZeroEntries)
-    }
-    
-    private func update() {
-        self.rowWeights = rows.map { row in
-            row.sum { c in c.value.matrixEliminationWeight }
+    private func setup<S>(size: MatrixSize, entries: S)
+    where S: Sequence, S.Element == MatrixEntry<R> {
+        self.size = size
+        
+        let group = entries.group{ c in c.row }
+        self.rows = (0 ..< size.rows).map { i in
+            if let list = group[i] {
+                let sorted = list.map{ c in RowEntry(c.col, c.value) }.sorted{ $0.col }
+                return Row(sorted)
+            } else {
+                return Row()
+            }
         }
+        
+        self.rowWeights = rows.map { $0.count }
         self.tracker = RowHeadTracker(headEntries)
     }
     
@@ -42,8 +51,10 @@ internal final class MatrixEliminationData<R: Ring> {
         rowWeights[i]
     }
     
+    @inlinable
     func addRowWeight(_ i: Int, _ w: Int) {
         rowWeights[i] += w
+//        assert(row(i).count == rowWeight(i))
     }
     
     var entries: AnySequence<MatrixEntry<R>> {
@@ -82,19 +93,17 @@ internal final class MatrixEliminationData<R: Ring> {
     }
     
     func transpose() {
-        let tSize = (size.cols, size.rows)
-        let tRows = Self.generateRows(
-            rows: size.cols,
-            entries: entries.map { (i, j, a) in (j, i, a) }
-        )
-        
-        self.size = tSize
-        self.rows = tRows
-        self.update()
+        setup(size: (size.cols, size.rows), entries: entries.map { (i, j, a) in (j, i, a) })
     }
     
     func resultAs<Impl, n, m>(_ type: MatrixIF<Impl, n, m>.Type) -> MatrixIF<Impl, n, m> where Impl.BaseRing == R {
         .init(size: size, entries: entries)
+    }
+    
+    // only for debug
+    var density: Double {
+        let nnz = rowWeights.sum()
+        return nnz == 0 ? 0 : Double(nnz) / Double(size.rows * size.cols)
     }
     
     @discardableResult
@@ -144,6 +153,7 @@ internal final class MatrixEliminationData<R: Ring> {
         let oldCols = rows.map{ i in
             row(i).headElement?.col
         }
+        
         let weights = zip(rows, rs)
             .map{ (i2, r) in (row(i2), r)}
             .parallelMap { (to, r) in
@@ -169,7 +179,7 @@ internal final class MatrixEliminationData<R: Ring> {
             return 0
         }
 
-        var dw = 0
+        var w = 0
         
         let fromHeadCol = from.headElement!.col
         if to.isEmpty || fromHeadCol < to.headElement!.col {
@@ -183,6 +193,7 @@ internal final class MatrixEliminationData<R: Ring> {
             //   to: ●--------->○------->○--->
             
             to.insertHead( (fromHeadCol, .zero) )
+            w += 1
         }
         
         var fromItr = from.makeIterator()
@@ -211,26 +222,25 @@ internal final class MatrixEliminationData<R: Ring> {
                 if b2.isZero && toPtr != toPrevPtr {
                     toPtr = toPrevPtr
                     toPtr.pointee.dropNext()
+                    w -= 1
                 } else {
                     toPtr.pointee.element.value = b2
                 }
-                
-                dw += b2.matrixEliminationWeight - a2.matrixEliminationWeight
                 
             } else {
                 let a2 = r * a1
                 toPtr.pointee.insertNext( RowEntry(j1, a2) )
                 (toPrevPtr, toPtr) = (toPtr, toPtr.pointee.next!)
-                
-                dw += a2.matrixEliminationWeight
+                w += 1
             }
         }
         
         if to.headElement!.value.isZero {
             to.dropHead()
+            w -= 1
         }
         
-        return dw
+        return w
     }
     
     @discardableResult
@@ -257,18 +267,6 @@ internal final class MatrixEliminationData<R: Ring> {
         return self
     }
     
-    private static func generateRows<S: Sequence>(rows n: Int, entries: S) -> [Row] where S.Element == MatrixEntry<R> {
-        let group = entries.group{ c in c.row }
-        return (0 ..< n).map { i in
-            if let list = group[i] {
-                let sorted = list.map{ c in RowEntry(c.col, c.value) }.sorted{ $0.col }
-                return Row(sorted)
-            } else {
-                return Row()
-            }
-        }
-    }
-    
     private final class RowHeadTracker {
         private var rowHeads: [Int : Set<Int>] // [col : Set<rows>]
 
@@ -279,8 +277,8 @@ internal final class MatrixEliminationData<R: Ring> {
             }
         }
         
-        func rows(withHeadInCol j: Int) -> Set<Int> {
-            rowHeads[j, default: []]
+        func rows(withHeadInCol j: Int) -> [Int] {
+            rowHeads[j, default: []].sorted()
         }
         
         func swapRows(_ e1: (Int, Int?), _ e2: (Int, Int?)) {
@@ -315,6 +313,5 @@ internal final class MatrixEliminationData<R: Ring> {
             }
         }
     }
-
 }
 
