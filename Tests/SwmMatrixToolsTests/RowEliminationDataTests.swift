@@ -12,7 +12,7 @@ import SwmCore
 class RowEliminationDataTests: XCTestCase {
     private typealias R = 𝐙
     private typealias M2 = Matrix2x2<R>
-    private typealias data = MatrixEliminationWorker<R>
+    private typealias data = MatrixEliminationData<R>
     
     func testEqual() {
         let a: M2 = [1,2,3,4]

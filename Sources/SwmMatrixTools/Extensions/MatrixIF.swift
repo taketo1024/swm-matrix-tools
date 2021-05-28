@@ -10,11 +10,11 @@ import SwmCore
 extension MatrixIF where BaseRing: EuclideanRing {
     public func eliminate(form: MatrixEliminationForm = .Diagonal) -> MatrixEliminationResult<Impl, n, m> {
         let (type, transpose) = eliminatorType(form)
-        let worker = !transpose
-            ? MatrixEliminationWorker(self)
-            : MatrixEliminationWorker(self.transposed) // TODO directly pass tranposed entries
+        let data = !transpose
+            ? MatrixEliminationData(self)
+            : MatrixEliminationData(self.transposed) // TODO directly pass tranposed entries
         
-        let e = type.init(worker: worker)
+        let e = type.init(data: data)
         e.run()
         
         return !transpose
@@ -63,7 +63,7 @@ extension MatrixIF {
     
     public func appliedRowOperations<S>(_ ops: S) -> Self
     where S: Sequence, S.Element == RowElementaryOperation<BaseRing> {
-        MatrixEliminationWorker(
+        MatrixEliminationData(
             size: size,
             entries: nonZeroEntries
         ).applyAll(ops).resultAs(Self.self)

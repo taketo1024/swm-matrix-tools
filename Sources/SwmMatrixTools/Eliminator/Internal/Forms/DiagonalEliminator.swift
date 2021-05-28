@@ -14,7 +14,7 @@ internal final class DiagonalEliminator<R: EuclideanRing>: MatrixEliminator<R> {
     }
     
     override func isDone() -> Bool {
-        worker.entries.allSatisfy { (i, j, a) in
+        data.entries.allSatisfy { (i, j, a) in
             (i == j) && a.isNormalized
         }
     }

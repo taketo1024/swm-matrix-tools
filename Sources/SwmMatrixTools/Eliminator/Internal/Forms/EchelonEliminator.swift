@@ -17,14 +17,14 @@ internal class RowEchelonEliminator<R: EuclideanRing>: MatrixEliminator<R> {
     }
     
     override func isDone() -> Bool {
-        currentRow >= worker.size.rows || currentCol >= worker.size.cols
+        currentRow >= data.size.rows || currentCol >= data.size.cols
     }
     
     @_specialize(where R == 𝐙)
     override func iteration() {
         
         // find pivot point
-        let colEntries = worker.headColEntries(in: currentCol)
+        let colEntries = data.colEntries(withHeadInCol: currentCol)
         guard let (i0, a0) = findPivot(in: colEntries) else {
             currentCol += 1
             return
@@ -77,7 +77,7 @@ internal class RowEchelonEliminator<R: EuclideanRing>: MatrixEliminator<R> {
     }
     
     fileprivate func batchAddRow(at i0: Int, targets: [ColEntry<R>]) {
-        worker.batchAddRow(
+        data.batchAddRow(
             at: i0,
             to: targets.map{ $0.row },
             multipliedBy: targets.map{ $0.value }
@@ -93,7 +93,7 @@ internal class RowEchelonEliminator<R: EuclideanRing>: MatrixEliminator<R> {
         candidates.min { (c1, c2) in
             let (i1, i2) = (c1.row, c2.row)
             let (d1, d2) = (c1.value.euclideanDegree, c2.value.euclideanDegree)
-            return d1 < d2 || (d1 == d2 && worker.rowWeight(i1) < worker.rowWeight(i2))
+            return d1 < d2 || (d1 == d2 && data.rowWeight(i1) < data.rowWeight(i2))
         }
     }
 }
@@ -104,8 +104,8 @@ internal class ReducedRowEchelonEliminator<R: EuclideanRing>: RowEchelonEliminat
     }
 
     override func reduceCurrentCol() {
-        let a0 = worker.row(currentRow).headElement!.value
-        let targets = worker
+        let a0 = data.row(currentRow).headElement!.value
+        let targets = data
             .colEntries(in: currentCol, aboveRow: currentRow)
             .compactMap { (i, a) -> (Int, R)? in
                 let q = a / a0

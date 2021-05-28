@@ -9,15 +9,15 @@
 import SwmCore
 
 public class MatrixEliminator<R: Ring> {
-    let worker: MatrixEliminationWorker<R>
+    let data: MatrixEliminationData<R>
     var debug: Bool = false
     var aborted: Bool = false
     
     public private(set) var rowOps: [RowElementaryOperation<R>]
     public private(set) var colOps: [ColElementaryOperation<R>]
     
-    required init(worker: MatrixEliminationWorker<R>) {
-        self.worker = worker
+    required init(data: MatrixEliminationData<R>) {
+        self.data = data
         self.rowOps = []
         self.colOps = []
     }
@@ -53,9 +53,9 @@ public class MatrixEliminator<R: Ring> {
     public func result<Impl, n, m>(as: MatrixEliminationResult<Impl, n, m>.Type) -> MatrixEliminationResult<Impl, n, m> where Impl.BaseRing == R {
         .init(
             form: form,
-            size: worker.size,
-            entries: worker.entries,
-            headEntries: worker.headEntries,
+            size: data.size,
+            entries: data.entries,
+            headEntries: data.headEntries,
             rowOps: rowOps,
             colOps: colOps
         )
@@ -68,7 +68,7 @@ public class MatrixEliminator<R: Ring> {
     // MARK: Internal methods
 
     final func subrun(_ type: MatrixEliminator<R>.Type, transpose: Bool = false) {
-        let e = type.init(worker: worker)
+        let e = type.init(data: data)
         if transpose {
             e.transpose()
         }
@@ -88,7 +88,7 @@ public class MatrixEliminator<R: Ring> {
     }
     
     final func apply(_ s: RowElementaryOperation<R>) {
-        worker.apply(s)
+        data.apply(s)
         append(s)
     }
 
@@ -109,7 +109,7 @@ public class MatrixEliminator<R: Ring> {
     
     final func transpose() {
         log("Transpose: \(self)")
-        worker.transpose()
+        data.transpose()
         (rowOps, colOps) = (colOps.map{ $0.transposed }, rowOps.map{ $0.transposed })
     }
     
@@ -120,7 +120,7 @@ public class MatrixEliminator<R: Ring> {
     }
     
     final func printCurrentMatrix() {
-        let (size, entries) = (worker.size, worker.entries)
+        let (size, entries) = (data.size, data.entries)
         if size.rows > 100 || size.cols > 100 {
             return
         }
