@@ -1,0 +1,251 @@
+//
+//  MatrixPivotFinder.swift
+//  SwiftyMath
+//
+//  Created by Taketo Sano on 2019/10/26.
+//
+
+//  Implementation based on:
+//
+//  "Parallel Sparse PLUQ Factorization modulo p", Charles Bouillaguet, Claire Delaplace, Marie-Emilie Voge.
+//  https://hal.inria.fr/hal-01646133/document
+//
+//  see also:
+//
+//  SpaSM (Sparse direct Solver Modulo p)
+//  https://github.com/cbouilla/spasm
+
+import SwmCore
+import Dispatch
+import TSCBasic
+
+public final class MatrixPivotFinder<R: Ring> {
+    typealias Row = MatrixEliminationData<R>.Row
+    
+    private let data: MatrixEliminationData<R>
+    private let rowWeights: [Double]
+    private let sortedRows: [Int]   // indices of non-zero rows, sorted by weight.
+    private var pivotRows: Set<Int> // Set(rows)
+    private var pivots: [Int : Int] // [col : row]
+    public  var debug: Bool = false
+    
+    internal init(data: MatrixEliminationData<R>) {
+        let rowWeights = data.rows.map { row in row.sum { $0.value.computationalWeight } }
+        
+        self.data = data
+        self.rowWeights = rowWeights
+        self.sortedRows = (0 ..< data.size.rows)
+            .exclude{ i in data.row(i).isEmpty }
+            .sorted(by: { i in rowWeights[i] } )
+        self.pivots = [:]
+        self.pivotRows = []
+        
+        pivots.reserveCapacity(data.size.cols)
+        pivotRows.reserveCapacity(data.size.rows)
+    }
+    
+    public var size: MatrixSize {
+        data.size
+    }
+    
+    public func findPivots() -> [(Int, Int)] {
+        log("Start pivot search.")
+        log("size: \(data.size), density: \(data.initialDensity)")
+        
+//        if size.rows < 100 && size.cols < 100 {
+//            log("before:\n\(data.resultAs(AnySizeMatrix.self).detailDescription)")
+//        }
+        
+        findFLPivots()
+        findFLColumnPivots()
+        findCycleFreePivots()
+        
+        let pivots = sortPivots()
+        
+        if pivots.isEmpty {
+            log("No pivots found.")
+            return []
+        } else if pivots.allSatisfy({ (j, i) in i == j }) {
+            log("No need for permutation.")
+            return []
+        }
+        
+        log("Total: \(pivots.count)\(pivots.allSatisfy({ (i, _) in data.row(i).count == 1 }) ? " perfect" : "") pivots.")
+        log("")
+        
+//        if size.rows < 100 && size.cols < 100 {
+//            log("after:\n\(data.resultAs(AnySizeMatrix.self).permute(byPivots: pivots).detailDescription)")
+//        }
+        
+        return pivots
+    }
+    
+    // Faugère-Lachartre pivot search
+    private func findFLPivots() {
+        var candidates: [Int : Int] = [:] // col -> row
+        
+        for i in sortedRows {
+            let j = data.row(i).headElement!.col
+            if shouldSet(row: i, prev: candidates[j]) {
+                candidates[j] = i
+            }
+        }
+        
+        candidates.forEach{ (j, i) in
+            setPivot(i, j)
+        }
+        
+        log("FL-pivots: \(candidates.count)")
+    }
+    
+    private func shouldSet(row i1: Int, prev i2: Int?) -> Bool {
+        guard let head1 = data.row(i1).headElement, isCandidate(head1.value) else {
+            return false
+        }
+        guard let i2 = i2, let head2 = data.row(i2).headElement else {
+            return true
+        }
+        
+        let w1 = head1.value.computationalWeight
+        let w2 = head2.value.computationalWeight
+        
+        return w1 * rowWeights[i1] < w2 * rowWeights[i2]
+    }
+    
+    private func findFLColumnPivots() {
+        let count = pivots.count
+        var occupiedCols = Set(pivotRows.flatMap{ i in
+            data.row(i).map { $0.col }
+        })
+        
+        for i in sortedRows where !pivotRows.contains(i) {
+            var currentCols: Set<Int> = []
+            var candidates: [RowEntry<R>] = []
+            
+            for (j, a) in data.row(i) where !occupiedCols.contains(j) {
+                currentCols.insert(j)
+                if isCandidate(a) {
+                    candidates.append((j, a))
+                }
+            }
+            
+            if let c = candidates.min(by: { $0.value.computationalWeight }) {
+                setPivot(i, c.col)
+                occupiedCols.formUnion(currentCols)
+            }
+        }
+        
+        log("FL-col-pivots: \(pivots.count - count)")
+    }
+    
+    private func findCycleFreePivots() {
+        let count = pivots.count
+        let atomic = DispatchQueue(label: "atomic", qos: .userInteractive)
+        
+        let remainingRows = sortedRows.exclude{ i in pivotRows.contains(i) }
+        remainingRows.parallelForEach { i in
+            while true {
+                let copy = atomic.sync { self.pivots }
+                guard let pivot = self.findCycleFreePivot(inRow: i, pivots: copy) else {
+                    break
+                }
+                
+                let done = atomic.sync { () -> Bool in
+                    if copy.count != self.pivots.count {
+                        return false
+                    }
+                    self.setPivot(pivot.0, pivot.1)
+                    return true
+                }
+                
+                if done {
+                    break
+                }
+            }
+        }
+        
+        log("cycle-free-pivots: \(pivots.count - count)")
+    }
+    
+    private func findCycleFreePivot(inRow i: Int, pivots: [Int : Int]) -> (Int, Int)? {
+        let row = data.row(i)
+        
+        //       j1
+        //  i [  O     O     C  C     ]    O: queued, C: candidates
+        //       |     |     ^
+        //       V     |     | rmv
+        // i2 [  X     o     o     O  ]
+        //             |           |
+        //             V           |
+        // i3 [        X           |  ]
+        //                         |
+        
+        // the following are col-indexed.
+        var candidates: Set<Int> = []
+        var values: [Int : R] = [:]
+        var queue: [Int] = []
+        var queued: Set<Int> = []
+        
+        // initialize
+        for (j, a) in row {
+            if pivots.contains(key: j) {
+                queue.append(j)
+                queued.insert(j)
+            } else if isCandidate(a) {
+                candidates.insert(j)
+                values[j] = a
+            }
+        }
+        
+        while !queue.isEmpty && !candidates.isEmpty {
+            let j1 = queue.removeFirst()
+            let i2 = pivots[j1]!
+            
+            for (j2, _) in data.row(i2) {
+                if pivots.contains(key: j2) && !queued.contains(j2) {
+                    queue.append(j2)
+                    queued.insert(j2)
+                } else if candidates.contains(j2) {
+                    candidates.remove(j2)
+                    if candidates.isEmpty {
+                        break
+                    }
+                }
+            }
+        }
+        
+        if let j = candidates.min(by: { j in values[j]!.computationalWeight }) {
+            return (i, j)
+        } else {
+            return nil
+        }
+    }
+    
+    private func sortPivots() -> [(Int, Int)] {
+        let tree = Dictionary(keys: pivots.keys) { j1 -> [Int] in
+            let i1 = pivots[j1]!
+            return data.row(i1).map{ $0.col }.filter { j2 in
+                j1 != j2 && pivots.contains(key: j2)
+            }
+        }
+        let sorted = try! topologicalSort(tree.keys.toArray(), successors: { j in tree[j] ?? [] })
+        return sorted.map { j in
+            (pivots[j]!, j)
+        }
+    }
+    
+    private func setPivot(_ i: Int, _ j: Int) {
+        pivotRows.insert(i)
+        pivots[j] = i
+    }
+    
+    private func log(_ msg: @autoclosure () -> String) {
+        if debug {
+            print(msg())
+        }
+    }
+    
+    private func isCandidate(_ a: R) -> Bool {
+        a == .identity || a == -.identity
+    }
+}
