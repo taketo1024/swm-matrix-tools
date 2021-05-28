@@ -56,7 +56,7 @@ internal final class SmithEliminator<R: EuclideanRing>: MatrixEliminator<R> {
     private func findPivot() -> (Int, R)? {
         diagonals[currentIndex...]
             .enumerated()
-            .min { (c1, c2) in c1.1.matrixEliminationWeight < c2.1.matrixEliminationWeight }
+            .min { $0.1.euclideanDegree }
             .map{ (i, a) in (i + currentIndex, a) }
     }
     
