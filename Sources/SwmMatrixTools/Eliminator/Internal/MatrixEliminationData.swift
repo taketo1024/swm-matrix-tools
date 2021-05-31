@@ -12,7 +12,7 @@ internal final class MatrixEliminationData<R: Ring> {
     
     private(set) var size: MatrixSize
     private(set) var rows: [Row]
-    private(set) var rowWeights: [Int]
+    private(set) var rowWeights: [Double]
     private var tracker: RowHeadTracker!
 
     init<S: Sequence>(size: MatrixSize, entries: S) where S.Element == MatrixEntry<R> {
@@ -37,7 +37,9 @@ internal final class MatrixEliminationData<R: Ring> {
             }
         }
         
-        self.rowWeights = rows.map { $0.count }
+        self.rowWeights = rows.map { row in
+            row.sum{ weight(of: $0.value) }
+        }
         self.tracker = RowHeadTracker(headEntries)
     }
     
@@ -47,14 +49,14 @@ internal final class MatrixEliminationData<R: Ring> {
     }
     
     @inlinable
-    func rowWeight(_ i: Int) -> Int {
-        rowWeights[i]
+    func weight(of a: R) -> Double {
+        1.0
+//        a.computationalWeight
     }
     
     @inlinable
-    func addRowWeight(_ i: Int, _ w: Int) {
-        rowWeights[i] += w
-//        assert(row(i).count == rowWeight(i))
+    func rowWeight(_ i: Int) -> Double {
+        rowWeights[i]
     }
     
     var entries: AnySequence<MatrixEntry<R>> {
@@ -137,7 +139,7 @@ internal final class MatrixEliminationData<R: Ring> {
         let j2 = row(i2).headElement?.col
         let w = addRow(row(i1), into: row(i2), multipliedBy: r)
         
-        addRowWeight(i2, w)
+        rowWeights[i2] += w
         tracker.headMoved(inRow: i2, fromCol: j2, toCol: row(i2).headElement?.col)
         
         return self
@@ -161,11 +163,12 @@ internal final class MatrixEliminationData<R: Ring> {
             }
         
         for (i, w) in zip(rows, weights) {
-            addRowWeight(i, w)
+            rowWeights[i] += w
         }
         for (i, j) in zip(rows, oldCols) {
             tracker.headMoved(inRow: i, fromCol: j, toCol: row(i).headElement?.col)
         }
+        
         return self
     }
     
@@ -174,12 +177,12 @@ internal final class MatrixEliminationData<R: Ring> {
     @_specialize(where R == 𝐐)
     @_specialize(where R == 𝐅₂)
     
-    private func addRow(_ from: Row, into to: Row, multipliedBy r: R) -> Int {
+    private func addRow(_ from: Row, into to: Row, multipliedBy r: R) -> Double {
         if from.isEmpty {
             return 0
         }
 
-        var w = 0
+        var w = 0.0
         
         let fromHeadCol = from.headElement!.col
         if to.isEmpty || fromHeadCol < to.headElement!.col {
@@ -193,7 +196,6 @@ internal final class MatrixEliminationData<R: Ring> {
             //   to: ●--------->○------->○--->
             
             to.insertHead( (fromHeadCol, .zero) )
-            w += 1
         }
         
         var fromItr = from.makeIterator()
@@ -201,43 +203,54 @@ internal final class MatrixEliminationData<R: Ring> {
         var toPrevPtr = toPtr
         
         while let (j1, a1) = fromItr.next() {
-            // At this point, it is assured that
-            // `from.value.col >= to.value.col`
+            // At this point, it is assured that `from.value.col >= to.value.col`.
+            // Proceed `to` so that it comes closed to `from`.
             
             // from: ------------->●--->○-------->
-            //   to: -->●----->○------------>○--->
-            
+            //   to: -->○----->●------------>○--->
+            //
+            //   ↓
+            //
+            // from: ------------->●--->○-------->
+            //   to: -->○----->●------------>○--->
+
             while let next = toPtr.pointee.next, next.pointee.element.col <= j1 {
                 (toPrevPtr, toPtr) = (toPtr, next)
             }
             
             let (j2, a2) = toPtr.pointee.element
             
-            // from: ------------->●--->○-------->
-            //   to: -->○----->●------------>○--->
-
             if j1 == j2 {
-                let b2 = a2 + r * a1
+                //                     j1 = j2
+                // from: ------------->●--->○-------->
+                //   to: -->○--------->●-------->○--->
+
+                let b = a2 + r * a1
                 
-                if b2.isZero && toPtr != toPrevPtr {
+                if b.isZero && toPtr != toPrevPtr {
                     toPtr = toPrevPtr
                     toPtr.pointee.dropNext()
-                    w -= 1
                 } else {
-                    toPtr.pointee.element.value = b2
+                    toPtr.pointee.element.value = b
                 }
                 
+                w += weight(of: b) - weight(of: a2)
+                
             } else {
-                let a2 = r * a1
-                toPtr.pointee.insertNext( RowEntry(j1, a2) )
+                //                 j2  j1
+                // from: ------------->●--->○-------->
+                //   to: -->○----->●------------>○--->
+
+                let b = r * a1
+                toPtr.pointee.insertNext( RowEntry(j1, b) )
                 (toPrevPtr, toPtr) = (toPtr, toPtr.pointee.next!)
-                w += 1
+                
+                w += weight(of: b)
             }
         }
         
         if to.headElement!.value.isZero {
             to.dropHead()
-            w -= 1
         }
         
         return w
