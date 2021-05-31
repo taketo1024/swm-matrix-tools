@@ -61,7 +61,7 @@ public struct LUDecomposition<Impl: MatrixImpl_LU, n: SizeType, m: SizeType> {
         
         let r = rank
         let Q = rightPermutation.asMatrix(Impl.self)
-        return Matrix(Q).submatrix(colRange: 0 ..< r)
+        return Q.submatrix(colRange: 0 ..< r)
     }
     
     // Coker(f) := W / Im(f)
