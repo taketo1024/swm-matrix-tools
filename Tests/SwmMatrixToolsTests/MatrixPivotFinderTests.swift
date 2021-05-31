@@ -13,7 +13,7 @@ class MatrixPivotFinderTests: XCTestCase {
     
     typealias M<n: SizeType, m: SizeType> = Matrix<Int, n, m>
     
-    func testSample() {
+    func testPivotFinder() {
         let A: M<_6, _9> = [
             1, 0, 1, 0, 0, 1, 1, 0, 1,
             0, 1, 1, 1, 0, 1, 0, 1, 0,
@@ -22,13 +22,28 @@ class MatrixPivotFinderTests: XCTestCase {
             0, 1, 0, 1, 0, 0, 1, 0, 1,
             1, 0, 1, 0, 1, 1, 0, 1, 1
         ]
-        let pivs = A.findPivots()
-        
+        let pivs = MatrixPivotFinder(A).findPivots()
         XCTAssertEqual(pivs.count, 5)
+    }
+    
+    func testPermuteByPivots() {
+        let A: M<_6, _9> = [
+            1, 0, 1, 0, 0, 1, 1, 0, 1,
+            0, 1, 1, 1, 0, 1, 0, 1, 0,
+            0, 0, 1, 1, 0, 0, 0, 1, 1,
+            0, 1, 1, 0, 1, 0, 0, 0, 0,
+            0, 1, 0, 1, 0, 0, 1, 0, 1,
+            1, 0, 1, 0, 1, 1, 0, 1, 1
+        ]
+        let (B, p, q) = A.permuteByPivots()
         
-        let (p, q) = A.permutations(forPivots: pivs)
-        let B = A.permute(rowsBy: p, colsBy: q)
+        XCTAssertEqual(A.permute(rowsBy: p, colsBy: q), B)
         
-        XCTAssertTrue(B.submatrix(rowRange: 0 ..< 5, colRange: 0 ..< 5).nonZeroEntries.allSatisfy{ (i, j, _) in i <= j }) // upper-triangular
+        // check upper-triangular
+        XCTAssertTrue(
+            B.submatrix(rowRange: 0 ..< 5, colRange: 0 ..< 5)
+                .nonZeroEntries
+                .allSatisfy{ (i, j, _) in i <= j }
+        )
     }
 }

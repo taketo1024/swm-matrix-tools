@@ -38,20 +38,17 @@ extension MatrixIF {
     where S: Sequence, S.Element == ColElementaryOperation<BaseRing> {
         transposed.appliedRowOperations(ops.map{ $0.transposed }).transposed
     }
-    
-    public func findPivots() -> [(Int, Int)] {
+}
+
+extension MatrixIF {
+    public func permuteByPivots() -> (MatrixIF<Impl, n, m>, Permutation<n>, Permutation<m>) {
         let pf = MatrixPivotFinder(self)
-        return pf.findPivots()
-    }
-    
-    public func permutations(forPivots pivots: [(Int, Int)]) -> (Permutation<n>, Permutation<m>) {
-        (asPermutation(size.rows, pivots.map{ $0.0 }),
-         asPermutation(size.cols, pivots.map{ $0.1 }))
-    }
-    
-    public func permute(byPivots pivots: [(Int, Int)]) -> Self {
-        let (p, q) = permutations(forPivots: pivots)
-        return self.permuteRows(by: p).permuteCols(by: q)
+        let pivots = pf.findPivots()
+        
+        let p: Permutation<n> = asPermutation(size.rows, pivots.map{ $0.0 })
+        let q: Permutation<m> = asPermutation(size.cols, pivots.map{ $0.1 })
+        
+        return (permute(rowsBy: p, colsBy: q), p, q)
     }
     
     private func asPermutation<n>(_ length: Int, _ order: [Int]) -> Permutation<n> {
@@ -64,19 +61,14 @@ extension MatrixIF {
 extension MatrixIF where BaseRing: EuclideanRing {
     public func eliminate(form: MatrixEliminationForm = .Diagonal, preprocess: Bool = false) -> MatrixEliminationResult<Impl, n, m> {
         if preprocess {
-            let pf = MatrixPivotFinder(self)
-            let pivs = pf.findPivots()
-            if !pivs.isEmpty {
-                let (p, q) = permutations(forPivots: pivs)
-                return permute(rowsBy: p, colsBy: q)
-                    ._eliminate(form: form)
-                    .precompose(rowOps: rowOps(p), colOps: colOps(q))
-            }
+            let (B, p, q) = permuteByPivots()
+            let e = B.eliminate(form: form, preprocess: false)
+            return e.precompose(
+                rowOps: p.asRowOps(),
+                colOps: q.asColOps()
+            )
         }
-        return _eliminate(form: form)
-    }
-    
-    private func _eliminate(form: MatrixEliminationForm) -> MatrixEliminationResult<Impl, n, m> {
+        
         let (type, transpose) = eliminatorType(form)
         let data = !transpose
             ? MatrixEliminationData(self)
@@ -108,14 +100,6 @@ extension MatrixIF where BaseRing: EuclideanRing {
             return (MatrixEliminator.self, false)
         }
     }
-    
-    private func rowOps(_ p: Permutation<n>) -> [RowElementaryOperation<BaseRing>] {
-        p.transpositionDecomposition.map { (i, j) in .SwapRows(i, j) }
-    }
-    
-    private func colOps(_ q: Permutation<m>) -> [ColElementaryOperation<BaseRing>] {
-        q.transpositionDecomposition.map { (i, j) in .SwapCols(i, j) }
-    }
 }
 
 extension MatrixEliminator {
@@ -136,3 +120,12 @@ extension MatrixEliminationData {
     }
 }
 
+extension Permutation {
+    func asRowOps<R: Ring>() -> [RowElementaryOperation<R>] {
+        transpositionDecomposition.map { (i, j) in .SwapRows(i, j) }
+    }
+
+    func asColOps<R: Ring>() -> [ColElementaryOperation<R>] {
+        transpositionDecomposition.map { (i, j) in .SwapCols(i, j) }
+    }
+}
