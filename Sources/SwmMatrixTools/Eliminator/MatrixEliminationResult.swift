@@ -12,14 +12,14 @@ public struct MatrixEliminationResult<Impl: MatrixImpl, n: SizeType, m: SizeType
     
     public let form: MatrixEliminationForm
     public let size: MatrixSize
-    public let entries: AnySequence<MatrixEntry<R>>
-    public let headEntries: AnySequence<MatrixEntry<R>>
+    public let entries: [MatrixEntry<R>]
+    public let headEntries: [MatrixEntry<R>]
     public let rowOps: [RowElementaryOperation<R>]
     public let colOps: [ColElementaryOperation<R>]
     
     private let cache: Cache<String, MatrixIF<Impl, anySize, anySize>> = .empty
     
-    public init(form: MatrixEliminationForm, size: MatrixSize, entries: AnySequence<MatrixEntry<R>>, headEntries: AnySequence<MatrixEntry<R>>, rowOps: [RowElementaryOperation<R>], colOps: [ColElementaryOperation<R>]) {
+    public init(form: MatrixEliminationForm, size: MatrixSize, entries: [MatrixEntry<R>], headEntries: [MatrixEntry<R>], rowOps: [RowElementaryOperation<R>], colOps: [ColElementaryOperation<R>]) {
         self.form = form
         self.size = size
         self.entries = entries
@@ -29,8 +29,8 @@ public struct MatrixEliminationResult<Impl: MatrixImpl, n: SizeType, m: SizeType
     }
     
     public var transposed: MatrixEliminationResult<Impl, m, n> {
-        func transpose<S: Sequence>(_ entries: S) -> AnySequence<MatrixEntry<R>> where S.Element == MatrixEntry<R> {
-            AnySequence(entries.lazy.map{ (i, j, a) in (j, i, a) })
+        func transpose(_ entries: [MatrixEntry<R>]) -> [MatrixEntry<R>] {
+            entries.map{ (i, j, a) in (j, i, a) }
         }
         return .init(
             form: form.transposed,

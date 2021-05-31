@@ -59,18 +59,18 @@ internal final class MatrixEliminationData<R: Ring> {
         rowWeights[i]
     }
     
-    var entries: AnySequence<MatrixEntry<R>> {
-        AnySequence(rows.enumerated().lazy.flatMap { (i, row) in
-            row.lazy.map { (j, a) in (i, j, a) }
-        })
+    var entries: [MatrixEntry<R>] {
+        rows.enumerated().flatMap { (i, row) in
+            row.map { (j, a) in (i, j, a) }
+        }
     }
     
-    var headEntries: AnySequence<MatrixEntry<R>> {
-        AnySequence(rows.enumerated().lazy.compactMap { (i, row) in
+    var headEntries: [MatrixEntry<R>] {
+        rows.enumerated().compactMap { (i, row) in
             row.headElement.map { (j, a) in
                 (i, j, a)
             }
-        })
+        }
     }
     
     // rename: colEntries(withRowHeadInCol j: Int)
