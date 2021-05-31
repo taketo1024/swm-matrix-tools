@@ -50,8 +50,7 @@ internal final class MatrixEliminationData<R: Ring> {
     
     @inlinable
     func weight(of a: R) -> Double {
-        1.0
-//        a.computationalWeight
+        a.computationalWeight
     }
     
     @inlinable
