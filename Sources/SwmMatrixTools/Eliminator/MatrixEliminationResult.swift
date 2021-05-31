@@ -141,8 +141,8 @@ extension MatrixEliminationResult where n == m {
 
 extension MatrixEliminationResult where R: EuclideanRing {
     // eliminate again
-    public func eliminate(form: MatrixEliminationForm = .Diagonal) -> MatrixEliminationResult<Impl, n, m> {
-        let e = result.eliminate(form: form, preprocess: false)
+    public func eliminate(form: MatrixEliminationForm = .Diagonal, preprocess: Bool = false) -> MatrixEliminationResult<Impl, n, m> {
+        let e = result.eliminate(form: form, preprocess: preprocess)
         return e.precompose(rowOps: rowOps, colOps: colOps)
     }
 }

@@ -62,7 +62,7 @@ extension MatrixIF {
 }
 
 extension MatrixIF where BaseRing: EuclideanRing {
-    public func eliminate(form: MatrixEliminationForm = .Diagonal, preprocess: Bool = true) -> MatrixEliminationResult<Impl, n, m> {
+    public func eliminate(form: MatrixEliminationForm = .Diagonal, preprocess: Bool = false) -> MatrixEliminationResult<Impl, n, m> {
         if preprocess {
             let pf = MatrixPivotFinder(self)
             let pivs = pf.findPivots()
