@@ -13,7 +13,7 @@ class MatrixPivotFinderTests: XCTestCase {
     
     typealias M<n: SizeType, m: SizeType> = Matrix<Int, n, m>
     
-    func testPivotFinder() {
+    func testFindPivots() {
         let A: M<_6, _9> = [
             1, 0, 1, 0, 0, 1, 1, 0, 1,
             0, 1, 1, 1, 0, 1, 0, 1, 0,
@@ -22,28 +22,34 @@ class MatrixPivotFinderTests: XCTestCase {
             0, 1, 0, 1, 0, 0, 1, 0, 1,
             1, 0, 1, 0, 1, 1, 0, 1, 1
         ]
-        let pf = MatrixPivotFinder(A)
-        XCTAssertEqual(pf.pivots.count, 5)
-    }
-    
-    func testPermuteByPivots() {
-        let A: M<_6, _9> = [
-            1, 0, 1, 0, 0, 1, 1, 0, 1,
-            0, 1, 1, 1, 0, 1, 0, 1, 0,
-            0, 0, 1, 1, 0, 0, 0, 1, 1,
-            0, 1, 1, 0, 1, 0, 0, 0, 0,
-            0, 1, 0, 1, 0, 0, 1, 0, 1,
-            1, 0, 1, 0, 1, 1, 0, 1, 1
-        ]
-        let pivs = A.findPivots()
-        let (B, p, q) = A.permute(byPivots: pivs)
+        let (pivs, p, q) = A.findPivots()
+        let B = A.permute(rowsBy: p, colsBy: q)
         
         XCTAssertTrue(pivs.count >= 4)
-        XCTAssertEqual(A.permute(rowsBy: p, colsBy: q), B)
         XCTAssertTrue(
             B.submatrix(rowRange: 0 ..< pivs.count, colRange: 0 ..< pivs.count)
                 .nonZeroEntries
                 .allSatisfy{ (i, j, a) in i < j || (i == j && a.isIdentity) }
+        )
+    }
+    
+    func testPermuteByPivotsColBased() {
+        let A: M<_6, _9> = [
+            1, 0, 1, 0, 0, 1, 1, 0, 1,
+            0, 1, 1, 1, 0, 1, 0, 1, 0,
+            0, 0, 1, 1, 0, 0, 0, 1, 1,
+            0, 1, 1, 0, 1, 0, 0, 0, 0,
+            0, 1, 0, 1, 0, 0, 1, 0, 1,
+            1, 0, 1, 0, 1, 1, 0, 1, 1
+        ]
+        let (pivs, p, q) = A.findPivots(mode: .colBased)
+        let B = A.permute(rowsBy: p, colsBy: q)
+
+        XCTAssertTrue(pivs.count >= 4)
+        XCTAssertTrue(
+            B.submatrix(rowRange: 0 ..< pivs.count, colRange: 0 ..< pivs.count)
+                .nonZeroEntries
+                .allSatisfy{ (i, j, a) in i > j || (i == j && a.isIdentity) }
         )
     }
 }

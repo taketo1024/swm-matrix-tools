@@ -28,10 +28,7 @@ extension MatrixIF {
     
     public func appliedRowOperations<S>(_ ops: S) -> Self
     where S: Sequence, S.Element == RowElementaryOperation<BaseRing> {
-        MatrixEliminationData(
-            size: size,
-            entries: nonZeroEntries
-        ).applyAll(ops).resultAs(Self.self)
+        MatrixEliminationData(self).applyAll(ops).resultAs(Self.self)
     }
     
     public func appliedColOperations<S>(_ ops: S) -> Self
@@ -41,21 +38,13 @@ extension MatrixIF {
 }
 
 extension MatrixIF {
-    public func findPivots() -> [(Int, Int)] {
-        MatrixPivotFinder(self).pivots
-    }
-    
-    public func permute(byPivots pivots: [(Int, Int)]) -> (MatrixIF<Impl, n, m>, Permutation<n>, Permutation<m>) {
-        let p: Permutation<n> = asPermutation(size.rows, pivots.map{ $0.0 })
-        let q: Permutation<m> = asPermutation(size.cols, pivots.map{ $0.1 })
-        
-        return (permute(rowsBy: p, colsBy: q), p, q)
-    }
-    
-    private func asPermutation<n>(_ length: Int, _ order: [Int]) -> Permutation<n> {
-        let remain = Set(0 ..< length).subtracting(order)
-        let p = Permutation<n>(length: length, indices: order + remain.sorted())
-        return p.inverse!
+    public func findPivots(mode: PivotMode = .rowBased) -> (pivots: [(Int, Int)], P: Permutation<n>, Q: Permutation<m>) {
+        let pf = MatrixPivotFinder(self, mode: mode)
+        return (
+            pivots: pf.pivots,
+            P: pf.rowPermutation.as(Permutation.self),
+            Q: pf.colPermutation.as(Permutation.self)
+        )
     }
 }
 

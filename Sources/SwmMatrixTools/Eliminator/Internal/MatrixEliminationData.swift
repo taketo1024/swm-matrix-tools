@@ -15,26 +15,35 @@ internal final class MatrixEliminationData<R: Ring> {
     private(set) var rowWeights: [Double]
     private var tracker: RowHeadTracker!
 
-    init<S: Sequence>(size: MatrixSize, entries: S) where S.Element == MatrixEntry<R> {
-        self.size = size
+    init<S: Sequence>(size: MatrixSize, entries: S, transpose: Bool) where S.Element == MatrixEntry<R> {
+        self.size = (0, 0)
         self.rows = []
         self.rowWeights = []
         self.tracker = RowHeadTracker([])
-        self.setup(size: size, entries: entries)
+        self.setup(size: size, entries: entries, transpose: transpose)
     }
     
-    convenience init<Impl: MatrixImpl>(_ A: Impl) where Impl.BaseRing == R {
-        self.init(size: A.size, entries: A.nonZeroEntries)
+    convenience init<Impl: MatrixImpl>(_ A: Impl, transpose: Bool = false) where Impl.BaseRing == R {
+        self.init(size: A.size, entries: A.nonZeroEntries, transpose: transpose)
     }
     
-    convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>) where Impl.BaseRing == R {
-        self.init(A.impl)
+    convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>, transpose: Bool = false) where Impl.BaseRing == R {
+        self.init(A.impl, transpose: transpose)
     }
     
-    private func setup<S>(size: MatrixSize, entries: S)
+    private func setup<S>(size: MatrixSize, entries: S, transpose: Bool)
     where S: Sequence, S.Element == MatrixEntry<R> {
-        self.size = size
+        if transpose {
+            // TODO generate tranposed rows directly
+            setup(
+                size: (size.cols, size.rows),
+                entries: entries.map { (i, j, a) in (j, i, a) },
+                transpose: false
+            )
+            return
+        }
         
+        self.size = size
         let group = entries.group{ c in c.row }
         self.rows = (0 ..< size.rows).map { i in
             if let list = group[i] {
@@ -102,10 +111,7 @@ internal final class MatrixEliminationData<R: Ring> {
     }
     
     func transpose() {
-        setup(
-            size: (size.cols, size.rows),
-            entries: allEntries.map { (i, j, a) in (j, i, a) }
-        )
+        setup(size: size, entries: allEntries, transpose: true)
     }
     
     func resultAs<Impl, n, m>(_ type: MatrixIF<Impl, n, m>.Type) -> MatrixIF<Impl, n, m> where Impl.BaseRing == R {

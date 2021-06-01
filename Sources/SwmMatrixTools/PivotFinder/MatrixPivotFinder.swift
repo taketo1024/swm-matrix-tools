@@ -19,6 +19,10 @@ import SwmCore
 import Dispatch
 import TSCBasic
 
+public enum PivotMode {
+    case rowBased, colBased
+}
+
 public final class MatrixPivotFinder<R: Ring> {
     typealias Row = MatrixEliminationData<R>.Row
     
@@ -26,11 +30,13 @@ public final class MatrixPivotFinder<R: Ring> {
     private let sortedRows: [Int]   // indices of non-zero rows, sorted by weight.
     private var pivotRows: Set<Int> // Set(rows)
     private var pivotTable: [Int : Int] // [col : row]
-    
-    public var pivots: [(Int, Int)] = []
+    private var result: [(Int, Int)] = []
+
+    public let mode: PivotMode
     public var debug: Bool = false
     
-    internal init(data: MatrixEliminationData<R>) {
+    internal init(data: MatrixEliminationData<R>, mode: PivotMode = .rowBased) {
+        self.mode = mode
         self.data = data
         self.sortedRows = (0 ..< data.size.rows)
             .exclude{ i in data.row(i).isEmpty }
@@ -41,19 +47,42 @@ public final class MatrixPivotFinder<R: Ring> {
         pivotTable.reserveCapacity(data.size.cols)
         pivotRows.reserveCapacity(data.size.rows)
         
-        self.pivots = findPivots()
+        self.result = findPivots()
     }
     
-    public convenience init<Impl: MatrixImpl>(_ A: Impl) where Impl.BaseRing == R {
-        self.init(data: MatrixEliminationData(A))
+    public convenience init<Impl: MatrixImpl>(_ A: Impl, mode: PivotMode = .rowBased) where Impl.BaseRing == R {
+        let data = MatrixEliminationData(A, transpose: mode == .colBased)
+        self.init(data: data, mode: mode)
     }
     
-    public convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>) where Impl.BaseRing == R {
-        self.init(A.impl)
+    public convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>, mode: PivotMode = .rowBased) where Impl.BaseRing == R {
+        self.init(A.impl, mode: mode)
     }
     
     public var size: MatrixSize {
-        data.size
+        mode == .rowBased
+            ? data.size
+            : (data.size.cols, data.size.rows)
+    }
+    
+    public var pivots: [(Int, Int)] {
+        mode == .rowBased
+            ? result
+            : result.map{ (i, j) in (j, i) }
+    }
+    
+    public var rowPermutation: Permutation<anySize> {
+        asPermutation(size.rows, pivots.map{ $0.0 })
+    }
+    
+    public var colPermutation: Permutation<anySize> {
+        asPermutation(size.cols, pivots.map{ $0.1 })
+    }
+    
+    private func asPermutation<n>(_ length: Int, _ order: [Int]) -> Permutation<n> {
+        let remain = Set(0 ..< length).subtracting(order)
+        let p = Permutation<n>(length: length, indices: order + remain.sorted())
+        return p.inverse!
     }
     
     private func findPivots() -> [(Int, Int)] {
@@ -86,20 +115,6 @@ public final class MatrixPivotFinder<R: Ring> {
 //        }
         
         return pivots
-    }
-    
-    public var rowPermutation: Permutation<anySize> {
-        asPermutation(size.rows, pivots.map{ $0.0 })
-    }
-    
-    public var colPermutation: Permutation<anySize> {
-        asPermutation(size.cols, pivots.map{ $0.1 })
-    }
-
-    private func asPermutation(_ length: Int, _ order: [Int]) -> Permutation<anySize> {
-        let remain = Set(0 ..< length).subtracting(order)
-        let p = Permutation<anySize>(length: length, indices: order + remain.sorted())
-        return p.inverse!
     }
     
     // Faugère-Lachartre pivot search

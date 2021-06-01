@@ -136,13 +136,11 @@ public class MatrixEliminator<R: Ring> {
 
 extension MatrixEliminator where R: EuclideanRing {
     public static func eliminate<Impl, n, m>(_ A: MatrixIF<Impl, n, m>, form: MatrixEliminationForm) -> MatrixEliminationResult<Impl, n, m>
-    where Impl: MatrixImpl, Impl.BaseRing == R {
+    where Impl: MatrixImpl, Impl.BaseRing == R { 
         let (type, transpose) = eliminatorType(form)
-        let data = !transpose
-            ? MatrixEliminationData(A)
-            : MatrixEliminationData(A.transposed) // TODO directly pass tranposed entries
-        
+        let data = MatrixEliminationData(A, transpose: transpose)
         let e = type.init(data: data)
+        
         e.run()
         
         return !transpose
