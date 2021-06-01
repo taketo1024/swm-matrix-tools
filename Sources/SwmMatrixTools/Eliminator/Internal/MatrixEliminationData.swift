@@ -23,6 +23,10 @@ internal final class MatrixEliminationData<R: Ring> {
         self.setup(size: size, entries: entries)
     }
     
+    convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>) where Impl.BaseRing == R {
+        self.init(size: A.size, entries: A.nonZeroEntries)
+    }
+    
     private func setup<S>(size: MatrixSize, entries: S)
     where S: Sequence, S.Element == MatrixEntry<R> {
         self.size = size
@@ -58,7 +62,7 @@ internal final class MatrixEliminationData<R: Ring> {
         rowWeights[i]
     }
     
-    var entries: [MatrixEntry<R>] {
+    var allEntries: [MatrixEntry<R>] {
         rows.enumerated().flatMap { (i, row) in
             row.map { (j, a) in (i, j, a) }
         }
@@ -94,11 +98,20 @@ internal final class MatrixEliminationData<R: Ring> {
     }
     
     func transpose() {
-        setup(size: (size.cols, size.rows), entries: entries.map { (i, j, a) in (j, i, a) })
+        setup(
+            size: (size.cols, size.rows),
+            entries: allEntries.map { (i, j, a) in (j, i, a) }
+        )
     }
     
     func resultAs<Impl, n, m>(_ type: MatrixIF<Impl, n, m>.Type) -> MatrixIF<Impl, n, m> where Impl.BaseRing == R {
-        .init(size: size, entries: entries)
+        .init(size: size) { setEntry in
+            for (i, row) in rows.enumerated() {
+                for e in row {
+                    setEntry(i, e.col, e.value)
+                }
+            }
+        }
     }
     
     // only for debug

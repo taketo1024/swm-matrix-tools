@@ -53,8 +53,7 @@ public class MatrixEliminator<R: Ring> {
     public func result<Impl, n, m>(as: MatrixEliminationResult<Impl, n, m>.Type) -> MatrixEliminationResult<Impl, n, m> where Impl.BaseRing == R {
         .init(
             form: form,
-            size: data.size,
-            entries: data.entries,
+            result: data.resultAs(MatrixIF.self),
             headEntries: data.headEntries,
             rowOps: rowOps,
             colOps: colOps
@@ -120,12 +119,10 @@ public class MatrixEliminator<R: Ring> {
     }
     
     final func printCurrentMatrix() {
-        let (size, entries) = (data.size, data.entries)
-        if size.rows > 100 || size.cols > 100 {
+        if data.size.rows > 100 || data.size.cols > 100 {
             return
         }
-        
-        print("\n", AnySizeMatrix(size: size, entries: entries).detailDescription, "\n")
+        print("\n", data.resultAs(AnySizeMatrix.self).detailDescription, "\n")
     }
 
     // MARK: Methods to be overridden
@@ -135,4 +132,41 @@ public class MatrixEliminator<R: Ring> {
     func isDone() -> Bool { true }
     func iteration() {}
     func finalize() {}
+}
+
+extension MatrixEliminator where R: EuclideanRing {
+    public static func eliminate<Impl, n, m>(_ A: MatrixIF<Impl, n, m>, form: MatrixEliminationForm) -> MatrixEliminationResult<Impl, n, m>
+    where Impl: MatrixImpl, Impl.BaseRing == R {
+        let (type, transpose) = eliminatorType(form)
+        let data = !transpose
+            ? MatrixEliminationData(A)
+            : MatrixEliminationData(A.transposed) // TODO directly pass tranposed entries
+        
+        let e = type.init(data: data)
+        e.run()
+        
+        return !transpose
+            ? e.result(as: MatrixEliminationResult.self)
+            : e.result(as: MatrixEliminationResult.self).transposed
+    }
+    
+    private static func eliminatorType(_ form: MatrixEliminationForm) -> (type: MatrixEliminator<R>.Type, transpose: Bool) {
+        switch form {
+        case .RowEchelon:
+            return (RowEchelonEliminator.self, false)
+        case .ColEchelon:
+            return (RowEchelonEliminator.self, true)
+        case .RowHermite:
+            return (ReducedRowEchelonEliminator.self, false)
+        case .ColHermite:
+            return (ReducedRowEchelonEliminator.self, true)
+        case .Diagonal:
+            return (DiagonalEliminator.self, false)
+        case .Smith:
+            return (SmithEliminator.self, false)
+        default:
+            return (MatrixEliminator.self, false)
+        }
+    }
+
 }

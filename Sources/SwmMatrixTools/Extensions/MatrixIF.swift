@@ -41,10 +41,11 @@ extension MatrixIF {
 }
 
 extension MatrixIF {
-    public func permuteByPivots() -> (MatrixIF<Impl, n, m>, Permutation<n>, Permutation<m>) {
-        let pf = MatrixPivotFinder(self)
-        let pivots = pf.findPivots()
-        
+    public func findPivots() -> [(Int, Int)] {
+        MatrixPivotFinder(self).findPivots()
+    }
+    
+    public func permute(byPivots pivots: [(Int, Int)]) -> (MatrixIF<Impl, n, m>, Permutation<n>, Permutation<m>) {
         let p: Permutation<n> = asPermutation(size.rows, pivots.map{ $0.0 })
         let q: Permutation<m> = asPermutation(size.cols, pivots.map{ $0.1 })
         
@@ -59,64 +60,8 @@ extension MatrixIF {
 }
 
 extension MatrixIF where BaseRing: EuclideanRing {
-    public func eliminate(form: MatrixEliminationForm = .Diagonal, preprocess: Bool = false) -> MatrixEliminationResult<Impl, n, m> {
-        if preprocess {
-            let (B, p, q) = permuteByPivots()
-            let e = B.eliminate(form: form, preprocess: false)
-            return e.precompose(
-                rowOps: p.asRowOps(),
-                colOps: q.asColOps()
-            )
-        }
-        
-        let (type, transpose) = eliminatorType(form)
-        let data = !transpose
-            ? MatrixEliminationData(self)
-            : MatrixEliminationData(self.transposed) // TODO directly pass tranposed entries
-        
-        let e = type.init(data: data)
-        e.run()
-        
-        return !transpose
-            ? e.result(as: MatrixEliminationResult.self)
-            : e.result(as: MatrixEliminationResult.self).transposed
-    }
-    
-    private func eliminatorType(_ form: MatrixEliminationForm) -> (MatrixEliminator<BaseRing>.Type, Bool) {
-        switch form {
-        case .RowEchelon:
-            return (RowEchelonEliminator.self, false)
-        case .ColEchelon:
-            return (RowEchelonEliminator.self, true)
-        case .RowHermite:
-            return (ReducedRowEchelonEliminator.self, false)
-        case .ColHermite:
-            return (ReducedRowEchelonEliminator.self, true)
-        case .Diagonal:
-            return (DiagonalEliminator.self, false)
-        case .Smith:
-            return (SmithEliminator.self, false)
-        default:
-            return (MatrixEliminator.self, false)
-        }
-    }
-}
-
-extension MatrixEliminator {
-    public convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>) where Impl.BaseRing == R {
-        self.init(data: MatrixEliminationData(A))
-    }
-}
-
-extension MatrixPivotFinder {
-    public convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>) where Impl.BaseRing == R {
-        self.init(data: MatrixEliminationData(A))
-    }
-}
-
-extension MatrixEliminationData {
-    convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>) where Impl.BaseRing == R {
-        self.init(size: A.size, entries: A.nonZeroEntries)
+    public func eliminate(form: MatrixEliminationForm = .Diagonal) -> MatrixEliminationResult<Impl, n, m> {
+        MatrixEliminator.eliminate(self, form: form)
     }
 }
 

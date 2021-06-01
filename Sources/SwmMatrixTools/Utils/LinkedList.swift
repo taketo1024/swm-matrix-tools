@@ -11,6 +11,10 @@ internal final class LinkedList<Element>: Sequence {
         var element: Element
         var next: NodePointer? = nil
         
+        var hasNext: Bool {
+            next != nil
+        }
+        
         mutating func insertNext(_ e: Element) {
             let p = NodePointer.new( Node(element: e, next: self.next) )
             self.next = p

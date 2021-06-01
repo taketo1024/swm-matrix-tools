@@ -35,15 +35,15 @@ class MatrixPivotFinderTests: XCTestCase {
             0, 1, 0, 1, 0, 0, 1, 0, 1,
             1, 0, 1, 0, 1, 1, 0, 1, 1
         ]
-        let (B, p, q) = A.permuteByPivots()
+        let pivs = A.findPivots()
+        let (B, p, q) = A.permute(byPivots: pivs)
         
+        XCTAssertTrue(pivs.count >= 4)
         XCTAssertEqual(A.permute(rowsBy: p, colsBy: q), B)
-        
-        // check upper-triangular
         XCTAssertTrue(
-            B.submatrix(rowRange: 0 ..< 5, colRange: 0 ..< 5)
+            B.submatrix(rowRange: 0 ..< pivs.count, colRange: 0 ..< pivs.count)
                 .nonZeroEntries
-                .allSatisfy{ (i, j, _) in i <= j }
+                .allSatisfy{ (i, j, a) in i < j || (i == j && a.isIdentity) }
         )
     }
 }

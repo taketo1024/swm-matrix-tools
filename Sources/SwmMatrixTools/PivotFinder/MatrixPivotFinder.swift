@@ -40,6 +40,10 @@ public final class MatrixPivotFinder<R: Ring> {
         pivotRows.reserveCapacity(data.size.rows)
     }
     
+    public convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>) where Impl.BaseRing == R {
+        self.init(data: MatrixEliminationData(A))
+    }
+    
     public var size: MatrixSize {
         data.size
     }
