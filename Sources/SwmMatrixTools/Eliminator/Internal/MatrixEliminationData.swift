@@ -168,25 +168,25 @@ internal final class MatrixEliminationData<R: Ring> {
     }
     
     @discardableResult
-    func batchAddRow(at i1: Int, to rows: [Int], multipliedBy rs: [R]) -> Self {
+    func addRow(at i1: Int, to: [(row: Int, multipliedBy: R)]) -> Self {
         let from = row(i1)
         if from.isEmpty {
             return self
         }
         
+        let rows = to.map{ $0.row }
         let oldCols = rows.map{ i in
             row(i).headElement?.col
         }
         
-        let weights = zip(rows, rs)
-            .map{ (i2, r) in (row(i2), r)}
-            .parallelMap { (to, r) in
-                addRow(from, into: to, multipliedBy: r)
-            }
+        let weights = to.parallelMap { (i, r) in
+            addRow(from, into: row(i), multipliedBy: r)
+        }
         
         for (i, w) in zip(rows, weights) {
             rowWeights[i] += w
         }
+        
         for (i, j) in zip(rows, oldCols) {
             tracker.headMoved(inRow: i, fromCol: j, toCol: row(i).headElement?.col)
         }

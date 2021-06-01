@@ -25,67 +25,35 @@ internal class RowEchelonEliminator<R: EuclideanRing>: MatrixEliminator<R> {
         
         // find pivot point
         let colEntries = data.colEntries(withHeadInCol: currentCol)
-        guard let (i0, a0) = findPivot(in: colEntries) else {
+        guard let pivot = findPivot(in: colEntries) else {
             currentCol += 1
             return
         }
         
-        log("Pivot: \((i0, currentCol)), \(a0)")
+        log("Pivot: \((pivot.row, currentCol)), \(pivot.value)")
         
-        // eliminate target col
-        
-        if colEntries.count > 1 {
-            var again = false
-            
-            let targets = colEntries.compactMap { (i, a) -> (Int, R)? in
-                if i == i0 {
-                    return nil
-                }
-                
-                let (q, r) = a /% a0
-                
-                if !r.isZero {
-                    again = true
-                }
-                
-                return (i, -q)
-            }
-            
-            batchAddRow(at: i0, targets: targets)
-            
-            if again {
-                return
-            }
+        let again = eliminate(colEntries, byPivot: pivot)
+        if again {
+            return
         }
         
         // final step
-        if !a0.isNormalized {
-            apply(.MulRow(at: i0, by: a0.normalizingUnit))
+        if !pivot.value.isNormalized {
+            apply(.MulRow(at: pivot.row, by: pivot.value.normalizingUnit))
         }
         
-        if i0 != currentRow {
-            apply(.SwapRows(i0, currentRow))
+        if pivot.row != currentRow {
+            apply(.SwapRows(pivot.row, currentRow))
         }
         
         reduceCurrentCol()
+        
         currentRow += 1
         currentCol += 1
     }
     
     fileprivate func reduceCurrentCol() {
         // override in subclass
-    }
-    
-    fileprivate func batchAddRow(at i0: Int, targets: [ColEntry<R>]) {
-        data.batchAddRow(
-            at: i0,
-            to: targets.map{ $0.row },
-            multipliedBy: targets.map{ $0.value }
-        )
-        
-        append(targets.map{ (i, r) in
-            .AddRow(at: i0, to: i, mul: r)
-        })
     }
     
     @_specialize(where R == 𝐙)
@@ -96,13 +64,37 @@ internal class RowEchelonEliminator<R: EuclideanRing>: MatrixEliminator<R> {
             return d1 < d2 || (d1 == d2 && data.rowWeight(i1) < data.rowWeight(i2))
         }
     }
+    
+    private func eliminate(_ colEntries: [ColEntry<R>], byPivot pivot: ColEntry<R>) -> Bool {
+        var again = false
+        let targets = colEntries
+            .exclude{ $0.row == pivot.row }
+            .map { (i, a) -> (Int, R) in
+                let (q, r) = a /% pivot.value
+                if !r.isZero {
+                    again = true
+                }
+                return (i, -q)
+            }
+        
+        addRow(at: pivot.row, to: targets)
+        
+        return again
+    }
+    
+    fileprivate func addRow(at i0: Int, to: [(Int, R)]) {
+        data.addRow(at: i0, to: to)
+        append(to.map{ (i, r) in
+            .AddRow(at: i0, to: i, mul: r)
+        })
+    }
 }
 
 internal class ReducedRowEchelonEliminator<R: EuclideanRing>: RowEchelonEliminator<R> {
     override var form: MatrixEliminationForm {
         .RowHermite
     }
-
+    
     override func reduceCurrentCol() {
         let a0 = data.row(currentRow).headElement!.value
         let targets = data
@@ -112,6 +104,6 @@ internal class ReducedRowEchelonEliminator<R: EuclideanRing>: RowEchelonEliminat
                 return !q.isZero ? (i, -q) : nil
             }
         
-        batchAddRow(at: currentRow, targets: targets)
+        addRow(at: currentRow, to: targets)
     }
 }
