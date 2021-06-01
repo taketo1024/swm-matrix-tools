@@ -22,8 +22,8 @@ class MatrixPivotFinderTests: XCTestCase {
             0, 1, 0, 1, 0, 0, 1, 0, 1,
             1, 0, 1, 0, 1, 1, 0, 1, 1
         ]
-        let pivs = MatrixPivotFinder(A).findPivots()
-        XCTAssertEqual(pivs.count, 5)
+        let pf = MatrixPivotFinder(A)
+        XCTAssertEqual(pf.pivots.count, 5)
     }
     
     func testPermuteByPivots() {

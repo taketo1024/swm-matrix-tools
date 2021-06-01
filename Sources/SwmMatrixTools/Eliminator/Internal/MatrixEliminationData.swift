@@ -23,8 +23,12 @@ internal final class MatrixEliminationData<R: Ring> {
         self.setup(size: size, entries: entries)
     }
     
-    convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>) where Impl.BaseRing == R {
+    convenience init<Impl: MatrixImpl>(_ A: Impl) where Impl.BaseRing == R {
         self.init(size: A.size, entries: A.nonZeroEntries)
+    }
+    
+    convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>) where Impl.BaseRing == R {
+        self.init(A.impl)
     }
     
     private func setup<S>(size: MatrixSize, entries: S)

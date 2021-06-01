@@ -42,7 +42,7 @@ extension MatrixIF {
 
 extension MatrixIF {
     public func findPivots() -> [(Int, Int)] {
-        MatrixPivotFinder(self).findPivots()
+        MatrixPivotFinder(self).pivots
     }
     
     public func permute(byPivots pivots: [(Int, Int)]) -> (MatrixIF<Impl, n, m>, Permutation<n>, Permutation<m>) {
