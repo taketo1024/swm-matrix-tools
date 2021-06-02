@@ -107,13 +107,12 @@ extension LUFactorizable {
     }
     
     private func splitIntoCols() -> [Self] {
-        nonZeroEntries
-            .group { $0.col }
-            .sorted { $0.key }
-            .map { (j, list) in
-                .init(
+        let cols = nonZeroEntries.group { $0.col }
+        return (0 ..< size.cols).map { j in
+            let col = cols[j] ?? []
+            return Self(
                     size: (size.rows, 1),
-                    entries: list.map{ (i, _, a) in MatrixEntry(i, 0, a) }
+                    entries: col.map{ (i, _, a) in MatrixEntry(i, 0, a) }
                 )
             }
     }
@@ -146,7 +145,7 @@ extension MatrixImpl {
     }
 }
 
-extension DefaultMatrixImpl: LUFactorizable {
+extension DefaultMatrixImpl: LUFactorizable where BaseRing: Field {
     public func factorize() -> (P: Permutation<anySize>, Q: Permutation<anySize>, L: DefaultMatrixImpl<R>, U: DefaultMatrixImpl<R>) {
         fatalError("")
     }
