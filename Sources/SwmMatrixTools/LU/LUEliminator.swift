@@ -124,6 +124,4 @@ internal class LUEliminator<R: Ring>: MatrixEliminator<R> {
         let r = data.countNonZeroRows
         return data.resultAs(M.self).permuteCols(by: Q).submatrix(rowRange: 0 ..< r, colRange: 0 ..< m)
     }
-    
-
 }

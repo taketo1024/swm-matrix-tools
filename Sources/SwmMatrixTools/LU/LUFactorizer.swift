@@ -9,19 +9,27 @@ import SwmCore
 
 public final class LUFactorizer<M: MatrixImpl & LUFactorizable> where M.BaseRing: EuclideanRing {
     public static func factorize(_ A: M) -> (P: Permutation<anySize>, Q: Permutation<anySize>, L: M, U: M)? {
-        let (n, m) = A.size
         let (P1, Q1, L1, U1, S) = partialLU(A) // TODO continue until S is dense enough
+        if S.isZero {
+            return (P1, Q1, L1, U1)
+        }
         let r1 = L1.size.cols
-        
-        guard let (P2, Q2, L2, U2) = fullLU(S) else {
+
+        guard let (P2s, Q2s, L2s, U2s) = fullLU(S) else {
             return nil
         }
         
-        let r2 = L2.size.cols
-        let P = P2.shift(r1) * P1.extend(r2)
-        let Q = Q2.shift(r1) * Q1.extend(r2)
-        let L = L1.concat(.zero(size: (n - L2.size.rows, r2)).stack(L2))
-        let U = U1.stack (.zero(size: (r2, m - U2.size.cols)).concat(L2))
+        let r2 = L2s.size.cols
+        let P2 = P2s.shifted(r1)
+        let Q2 = Q2s.shifted(r1)
+
+        let L2 = M.zero(size: (r1, r2)).stack (L2s)
+        let U2 = M.zero(size: (r2, r1)).concat(U2s)
+        
+        let P = P2 * P1
+        let Q = Q2 * Q1
+        let L = L1.permuteRows(by: P2).concat(L2)
+        let U = U1.permuteCols(by: Q2).stack (U2)
         
         return (P, Q, L, U)
     }
@@ -104,14 +112,3 @@ public struct LUFactorization<Impl: MatrixImpl & LUFactorizable, n: SizeType, m:
         }
     }
 }
-
-extension Permutation {
-    func extend(_ n: Int) -> Permutation<anySize> {
-        fatalError("TODO")
-    }
-
-    func shift(_ n: Int) -> Permutation<anySize> {
-        fatalError("TODO")
-    }
-}
-
