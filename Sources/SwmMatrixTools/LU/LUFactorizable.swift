@@ -8,6 +8,8 @@
 import SwmCore
 
 public protocol LUFactorizable: MatrixImpl {
+    func LUfactorize() -> (P: Permutation<anySize>, Q: Permutation<anySize>, L: Self, U: Self)
+    
     // solve L * x = b.
     static func solveLowerTriangular(_ L: Self, _ b: Self) -> Self
 
@@ -16,7 +18,11 @@ public protocol LUFactorizable: MatrixImpl {
 }
 
 extension LUFactorizable {
-    static func solveLowerTrapezoidal(_ L: Self, _ b: Self) -> Self? {
+    public func LUfactorize() -> (P: Permutation<anySize>, Q: Permutation<anySize>, L: Self, U: Self) {
+        LUFactorizer.factorize(self)!
+    }
+    
+    public static func solveLowerTrapezoidal(_ L: Self, _ b: Self) -> Self? {
         assert(L.size.rows >= L.size.cols)
         assert(L.size.rows == b.size.rows)
         
@@ -41,7 +47,7 @@ extension LUFactorizable {
         }
     }
     
-    static func solveUpperTrapezoidal(_ U: Self, _ b: Self) -> Self {
+    public static func solveUpperTrapezoidal(_ U: Self, _ b: Self) -> Self {
         assert(U.size.rows <= U.size.cols)
         assert(U.size.rows == b.size.rows)
 

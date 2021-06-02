@@ -66,7 +66,7 @@ extension MatrixIF where BaseRing: EuclideanRing {
 
 extension MatrixIF where Impl: LUFactorizable {
     public func LUfactorize() -> LUFactorizationResult<Impl, n, m> {
-        let (P, Q, L, U) = LUFactorizer.factorize(impl)!
+        let (P, Q, L, U) = impl.LUfactorize()
         return LUFactorizationResult(
             P: P.as(Permutation.self),
             Q: Q.as(Permutation.self),
