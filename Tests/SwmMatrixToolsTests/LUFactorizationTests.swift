@@ -15,6 +15,19 @@ class LUFactorizationTests: XCTestCase {
     typealias M<n: SizeType, m: SizeType> = Matrix<R, n, m>
 
     func testSolveLowerTriangular() {
+        let L: M<_4, _4> = [
+            1, 0, 0, 0,
+            1, 1, 0, 0,
+            -1,0, 1, 0,
+            0, 2, 0, -1,
+        ]
+        let b: M<_4, _1> = [1, 2, 1, 1]
+        let x = M.solveLowerTriangular(L, b)
+        
+        XCTAssertEqual(L * x, b)
+    }
+    
+    func testSolveLowerTrapezoidal() {
         let L: M<_6, _4> = [
             1, 0, 0, 0,
             1, 1, 0, 0,
@@ -24,10 +37,10 @@ class LUFactorizationTests: XCTestCase {
             2, 0, 0, 1
         ]
         let b: M<_6, _1> = [1, 2, 1, 1, 7, 3]
-        let x = DefaultMatrixImpl<R>.solveLowerTriangular(L.impl, b.impl)
+        let x = M.solveLowerTrapezoidal(L, b)
         
         if let x = x {
-            XCTAssertEqual(L.impl * x, b.impl)
+            XCTAssertEqual(L * x, b)
         } else {
             XCTFail()
         }
@@ -43,11 +56,24 @@ class LUFactorizationTests: XCTestCase {
             2, 0, 0, 1
         ]
         let b: M<_6, _1> = [1, 2, 1, 1, 7, 1]
-        let x = DefaultMatrixImpl<R>.solveLowerTriangular(L.impl, b.impl)
+        let x = M.solveLowerTrapezoidal(L, b)
         XCTAssertNil(x)
     }
 
     func testSolveUpperTriangular() {
+        let U: M<_4, _4> = [
+            1, 2, 3, 4,
+            0,-1, 0, 2,
+            0 ,0, 1, 0,
+            0, 0, 0, -1,
+        ]
+        let b: M<_4, _1> = [65, 3, 18, 17]
+        let x = M.solveUpperTriangular(U, b)
+
+        XCTAssertEqual(U * x, b)
+    }
+    
+    func testSolveUpperTrapezoidal() {
         let U: M<_4, _6> = [
             1, 2, 3, 4, 5, 6,
             0,-1, 0, 2, 0, 1,
@@ -55,13 +81,9 @@ class LUFactorizationTests: XCTestCase {
             0, 0, 0, -1,3, -1
         ]
         let b: M<_4, _1> = [65, 3, 18, 17]
-        let x = DefaultMatrixImpl<R>.solveUpperTriangular(U.impl, b.impl)
+        let x = M.solveUpperTrapezoidal(U, b)
 
-        if let x = x {
-            XCTAssertEqual(U.impl * x, b.impl)
-        } else {
-            XCTFail()
-        }
+        XCTAssertEqual(U * x, b)
     }
     
     func testFactorizerPartialLU() {

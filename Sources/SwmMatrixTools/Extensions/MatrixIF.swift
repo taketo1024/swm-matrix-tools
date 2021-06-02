@@ -65,14 +65,6 @@ extension MatrixIF where BaseRing: EuclideanRing {
 }
 
 extension MatrixIF where Impl: LUFactorizable {
-    public static func solveLowerTriangular<k>(_ L: Self, _ b: MatrixIF<Impl, n, k>) -> MatrixIF<Impl, m, k>? {
-        Impl.solveLowerTriangular(L.impl, b.impl).flatMap{ .init($0) }
-    }
-    
-    public static func solveUpperTriangular<k>(_ U: Self, _ b: MatrixIF<Impl, n, k>) -> MatrixIF<Impl, m, k>? {
-        Impl.solveUpperTriangular(U.impl, b.impl).flatMap{ .init($0) }
-    }
-    
     public func LUfactorize() -> LUFactorizationResult<Impl, n, m> {
         let (P, Q, L, U) = LUFactorizer.factorize(impl)!
         return LUFactorizationResult(
@@ -81,5 +73,23 @@ extension MatrixIF where Impl: LUFactorizable {
             L: .init(L),
             U: .init(U)
         )
+    }
+    
+    public static func solveLowerTrapezoidal<k>(_ L: Self, _ b: MatrixIF<Impl, n, k>) -> MatrixIF<Impl, m, k>? {
+        Impl.solveLowerTrapezoidal(L.impl, b.impl).flatMap{ .init($0) }
+    }
+    
+    public static func solveUpperTrapezoidal<k>(_ L: Self, _ b: MatrixIF<Impl, n, k>) -> MatrixIF<Impl, m, k> {
+        .init(Impl.solveUpperTrapezoidal(L.impl, b.impl))
+    }
+}
+
+extension MatrixIF where Impl: LUFactorizable, n == m {
+    public static func solveLowerTriangular<k>(_ L: Self, _ b: MatrixIF<Impl, n, k>) -> MatrixIF<Impl, m, k> {
+        .init(Impl.solveLowerTriangular(L.impl, b.impl))
+    }
+    
+    public static func solveUpperTriangular<k>(_ U: Self, _ b: MatrixIF<Impl, n, k>) -> MatrixIF<Impl, m, k> {
+        .init(Impl.solveUpperTriangular(U.impl, b.impl))
     }
 }

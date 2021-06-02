@@ -8,8 +8,11 @@
 import SwmCore
 
 extension DefaultMatrixImpl: LUFactorizable where BaseRing: Field {
-    public static func solveLowerTriangular(_ L: Self, _ B: Self) -> Self? {
-        assert(L.isLowerTriangular && L.hasInvertibleDiagonal)
+    public static func solveLowerTriangular(_ L: Self, _ B: Self) -> Self {
+        assert(L.isSquare)
+        assert(L.isLowerTriangular)
+        assert(L.hasInvertibleDiagonal)
+        assert(L.size.rows == B.size.rows)
         
         let (m, k) = (L.size.cols, B.size.cols)
         let Lcols = L.splitIntoCols()
@@ -18,14 +21,10 @@ extension DefaultMatrixImpl: LUFactorizable where BaseRing: Field {
             self.solveLowerTriangularSingle(Lcols, b)
         }
         
-        if Xcols.contains(where: { $0 == nil }) {
-            return nil
-        } else {
-            return .init(size: (m, k), cols: Xcols.map{ $0! } )
-        }
+        return .init(size: (m, k), cols: Xcols)
     }
     
-    private static func solveLowerTriangularSingle(_ Lcols: [Self], _ b: Self) -> Self? {
+    private static func solveLowerTriangularSingle(_ Lcols: [Self], _ b: Self) -> Self {
         typealias R = BaseRing
         
         let n = b.size.rows
@@ -49,16 +48,16 @@ extension DefaultMatrixImpl: LUFactorizable where BaseRing: Field {
             w = w - xi * l
         }
         
-        if w.isZero {
-            return x
-        } else {
-            return nil
-        }
+        assert(w.isZero)
+        return x
     }
 
-    public static func solveUpperTriangular(_ U: Self, _ B: Self) -> Self? {
-        assert(U.isUpperTriangular && U.hasInvertibleDiagonal)
-        
+    public static func solveUpperTriangular(_ U: Self, _ B: Self) -> Self {
+        assert(U.isSquare)
+        assert(U.isUpperTriangular)
+        assert(U.hasInvertibleDiagonal)
+        assert(U.size.rows == B.size.rows)
+
         let (n, m) = U.size
         let r = min(n, m)
         let k = B.size.cols

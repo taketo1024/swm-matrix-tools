@@ -67,7 +67,7 @@ public final class LUFactorizer<M: MatrixImpl & LUFactorizable> {
         let C = pAq.submatrix(rowRange: r ..< n, colRange: 0 ..< r)
         let D = pAq.submatrix(rowRange: r ..< n, colRange: r ..< m)
         
-        let B1 = M.solveLowerTriangular(L, B)!
+        let B1 = M.solveLowerTriangular(L, B)
         let S = D - C * B1
         
         return (

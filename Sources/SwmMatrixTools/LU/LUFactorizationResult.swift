@@ -42,7 +42,7 @@ public struct LUFactorizationResult<Impl: MatrixImpl & LUFactorizable, n: SizeTy
         let (r, m) = U.size
         let U0 = U.submatrix(colRange: 0 ..< r)
         let U1 = U.submatrix(colRange: r ..< m)
-        let K = Matrix.solveUpperTriangular(U0, U1)! // U0 * K = U1
+        let K = Matrix.solveUpperTriangular(U0, U1) // U0 * K = U1
         let I = Matrix<anySize, anySize>.identity(size: (m - r, m - r))
         return (-K).stack(I).as(Matrix<m, anySize>.self).permuteRows(by: Q.inverse!)
     }
@@ -69,12 +69,11 @@ public struct LUFactorizationResult<Impl: MatrixImpl & LUFactorizable, n: SizeTy
         //  <=> Lz = Pb, Uy = z, x = Qy.
         
         assert(L.size.rows == b.size.rows)
-        let Pb = b.permuteRows(by: P).impl
-        if let z = Impl.solveLowerTriangular(L.impl, Pb),
-           let y = Impl.solveUpperTriangular(U.impl, z) {
-            //  Recall Qy = (Q1 ... Qn)y
-            let x = y.permuteRows(by: Q.inverse!.asAnySize)
-            return .init(x)
+        let Pb = b.permuteRows(by: P)
+        if let z = Matrix.solveLowerTrapezoidal(L, Pb) {
+            let y = Matrix.solveUpperTrapezoidal(U, z)
+            let x = y.permuteRows(by: Q.inverse!)
+            return x
         } else {
             return nil
         }
