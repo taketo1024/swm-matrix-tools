@@ -48,6 +48,8 @@ public final class LUFactorizer<M: MatrixImpl & LUFactorizable> where M.BaseRing
 
         let (n, m) = A.size
         let pf = MatrixPivotFinder(A, mode: .colBased)
+        pf.run()
+        
         let (P, Q) = (pf.rowPermutation, pf.colPermutation)
         let r = pf.pivots.count
 

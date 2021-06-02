@@ -40,6 +40,8 @@ extension MatrixIF {
 extension MatrixIF {
     public func findPivots(mode: PivotMode = .rowBased) -> (pivots: [(Int, Int)], P: Permutation<n>, Q: Permutation<m>) {
         let pf = MatrixPivotFinder(self, mode: mode)
+        pf.run()
+        
         return (
             pivots: pf.pivots,
             P: pf.rowPermutation.as(Permutation.self),

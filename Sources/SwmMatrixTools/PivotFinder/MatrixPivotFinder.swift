@@ -30,7 +30,7 @@ public final class MatrixPivotFinder<R: Ring> {
     private let sortedRows: [Int]   // indices of non-zero rows, sorted by weight.
     private var pivotRows: Set<Int> // Set(rows)
     private var pivotTable: [Int : Int] // [col : row]
-    private var result: [(Int, Int)] = []
+    private var result: [(Int, Int)]
 
     public let mode: PivotMode
     public var debug: Bool = false
@@ -43,11 +43,10 @@ public final class MatrixPivotFinder<R: Ring> {
             .sorted(by: { i in data.rowWeight(i) } )
         self.pivotTable = [:]
         self.pivotRows = []
+        self.result = []
         
         pivotTable.reserveCapacity(data.size.cols)
         pivotRows.reserveCapacity(data.size.rows)
-        
-        self.result = findPivots()
     }
     
     public convenience init<Impl: MatrixImpl>(_ A: Impl, mode: PivotMode = .rowBased) where Impl.BaseRing == R {
@@ -79,18 +78,17 @@ public final class MatrixPivotFinder<R: Ring> {
         asPermutation(size.cols, pivots.map{ $0.1 })
     }
     
-    private func asPermutation<n>(_ length: Int, _ order: [Int]) -> Permutation<n> {
-        let p = Permutation<n>(length: length, indices: order, fillRemaining: true)
-        return p.inverse!
+    private func asPermutation(_ length: Int, _ order: [Int]) -> Permutation<anySize> {
+        .init(length: length, indices: order, fillRemaining: true).inverse!
     }
     
-    private func findPivots() -> [(Int, Int)] {
+    public func run() {
         log("Start pivot search.")
         log("size: \(data.size), density: \(data.density)")
         
-//        if size.rows < 100 && size.cols < 100 {
-//            log("before:\n\(data.resultAs(AnySizeMatrix.self).detailDescription)")
-//        }
+        if size.rows < 100 && size.cols < 100 {
+            log("before:\n\(data.resultAs(AnySizeMatrix.self).detailDescription)")
+        }
         
         findFLPivots()
         findFLColumnPivots()
@@ -100,20 +98,20 @@ public final class MatrixPivotFinder<R: Ring> {
         
         if pivots.isEmpty {
             log("No pivots found.")
-            return []
         } else if pivots.allSatisfy({ (j, i) in i == j }) {
             log("No need for permutation.")
-            return []
+        } else {
+            self.result = pivots
+            
+            log("Total: \(pivots.count)\(pivots.allSatisfy({ (i, _) in data.row(i).count == 1 }) ? " perfect" : "") pivots.")
+            log("")
+            
+            if debug && size.rows < 100 && size.cols < 100 {
+                let p = asPermutation(data.size.rows, pivots.map{ $0.0 })
+                let q = asPermutation(data.size.cols, pivots.map{ $0.1 })
+                log("after:\n\(data.resultAs(AnySizeMatrix.self).permute(rowsBy: p, colsBy: q).detailDescription)")
+            }
         }
-        
-        log("Total: \(pivots.count)\(pivots.allSatisfy({ (i, _) in data.row(i).count == 1 }) ? " perfect" : "") pivots.")
-        log("")
-        
-//        if size.rows < 100 && size.cols < 100 {
-//            log("after:\n\(data.resultAs(AnySizeMatrix.self).permute(byPivots: pivots).detailDescription)")
-//        }
-        
-        return pivots
     }
     
     // Faugère-Lachartre pivot search
