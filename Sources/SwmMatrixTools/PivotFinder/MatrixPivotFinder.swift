@@ -80,8 +80,7 @@ public final class MatrixPivotFinder<R: Ring> {
     }
     
     private func asPermutation<n>(_ length: Int, _ order: [Int]) -> Permutation<n> {
-        let remain = Set(0 ..< length).subtracting(order)
-        let p = Permutation<n>(length: length, indices: order + remain.sorted())
+        let p = Permutation<n>(length: length, indices: order, fillRemaining: true)
         return p.inverse!
     }
     
