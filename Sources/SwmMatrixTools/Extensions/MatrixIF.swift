@@ -8,6 +8,14 @@
 import SwmCore
 
 extension MatrixIF {
+    public var isLowerTriangular: Bool {
+        impl.isLowerTriangular
+    }
+    
+    public var isUpperTriangular: Bool {
+        impl.isUpperTriangular
+    }
+    
     public static func rowUnits<S>(size: MatrixSize, indices: S) -> Self
     where S: Sequence, S.Element == Int {
         assert(size.rows == indices.count)
@@ -26,12 +34,12 @@ extension MatrixIF {
         )
     }
     
-    public func appliedRowOperations<S>(_ ops: S) -> Self
+    internal func appliedRowOperations<S>(_ ops: S) -> Self
     where S: Sequence, S.Element == RowElementaryOperation<BaseRing> {
         MatrixEliminationData(self).applyAll(ops).resultAs(Self.self)
     }
     
-    public func appliedColOperations<S>(_ ops: S) -> Self
+    internal func appliedColOperations<S>(_ ops: S) -> Self
     where S: Sequence, S.Element == ColElementaryOperation<BaseRing> {
         transposed.appliedRowOperations(ops.map{ $0.transposed }).transposed
     }
@@ -56,12 +64,22 @@ extension MatrixIF where BaseRing: EuclideanRing {
     }
 }
 
-extension Permutation {
-    func asRowOps<R: Ring>() -> [RowElementaryOperation<R>] {
-        transpositionDecomposition.map { (i, j) in .SwapRows(i, j) }
+extension MatrixIF where Impl: LUFactorizable {
+    public static func solveLowerTriangular<k>(_ L: Self, _ b: MatrixIF<Impl, n, k>) -> MatrixIF<Impl, m, k>? {
+        Impl.solveLowerTriangular(L.impl, b.impl).flatMap{ .init($0) }
     }
-
-    func asColOps<R: Ring>() -> [ColElementaryOperation<R>] {
-        transpositionDecomposition.map { (i, j) in .SwapCols(i, j) }
+    
+    public static func solveUpperTriangular<k>(_ U: Self, _ b: MatrixIF<Impl, n, k>) -> MatrixIF<Impl, m, k>? {
+        Impl.solveUpperTriangular(U.impl, b.impl).flatMap{ .init($0) }
+    }
+    
+    public func LUfactorize() -> LUFactorizationResult<Impl, n, m> {
+        let (P, Q, L, U) = LUFactorizer.factorize(impl)!
+        return LUFactorizationResult(
+            P: P.as(Permutation.self),
+            Q: Q.as(Permutation.self),
+            L: .init(L),
+            U: .init(U)
+        )
     }
 }

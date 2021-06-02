@@ -7,7 +7,7 @@
 
 import SwmCore
 
-public final class LUFactorizer<M: MatrixImpl & LUFactorizable> where M.BaseRing: EuclideanRing {
+public final class LUFactorizer<M: MatrixImpl & LUFactorizable> {
     public static func factorize(_ A: M) -> (P: Permutation<anySize>, Q: Permutation<anySize>, L: M, U: M)? {
         let (P1, Q1, L1, U1, S) = partialLU(A) // TODO continue until S is dense enough
         if S.isZero {
@@ -83,32 +83,5 @@ public final class LUFactorizer<M: MatrixImpl & LUFactorizable> where M.BaseRing
         let e = LUEliminator(data: MatrixEliminationData(A))
         e.run()
         return e.PQLU(M.self)
-    }
-}
-
-public struct LUFactorization<Impl: MatrixImpl & LUFactorizable, n: SizeType, m: SizeType> {
-    public let P: Permutation<n>
-    public let Q: Permutation<m>
-    public let L: MatrixIF<Impl, n, anySize>
-    public let U: MatrixIF<Impl, anySize, m>
-    
-    public init(P: Permutation<n>, Q: Permutation<m>, L: MatrixIF<Impl, n, anySize>, U: MatrixIF<Impl, anySize, m>) {
-        self.P = P
-        self.Q = Q
-        self.L = L
-        self.U = U
-    }
-    
-    public var rank: Int {
-        L.size.cols // == U.size.rows
-    }
-    
-    public func solve<k>(_ b: MatrixIF<Impl, n, k>) -> MatrixIF<Impl, m, k>? {
-        if let y = Impl.solveUpperTriangular(U.impl, b.impl),
-           let x = Impl.solveLowerTriangular(L.impl, y) {
-            return .init(x)
-        } else {
-            return nil
-        }
     }
 }

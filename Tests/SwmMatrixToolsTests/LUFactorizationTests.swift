@@ -64,7 +64,7 @@ class LUFactorizationTests: XCTestCase {
         }
     }
     
-    func testPartialLU() {
+    func testFactorizerPartialLU() {
         let A: M<_6, _9> = [
             1, 0, 1, 0, 0, 1, 1, 0, 1,
             0, 1, 1, 1, 0, 1, 0, 1, 0,
@@ -84,7 +84,7 @@ class LUFactorizationTests: XCTestCase {
         )
     }
     
-    func testPartialLU2() {
+    func testFactorizerPartialLU2() {
         let A: M<_5, _5> = [
             1, 0, 1, 0, 2,
             0, 0, 0, 3, 0,
@@ -103,7 +103,7 @@ class LUFactorizationTests: XCTestCase {
         )
     }
     
-    func testFullLU() {
+    func testFactorizerFullLU() {
         let A: M<_5, _5> = [
             1, 0, 1, 0, 2,
             0, 0, 0, 3, 0,
@@ -122,7 +122,7 @@ class LUFactorizationTests: XCTestCase {
         XCTAssertEqual(_A.permute(rowsBy: P, colsBy: Q), L * U)
     }
     
-    func testFactorize() {
+    func testFactorizerFactorize() {
         let A: M<_5, _5> = [
             1, 0, 1, 0, 2,
             0, 0, 0, 3, 0,
@@ -139,5 +139,90 @@ class LUFactorizationTests: XCTestCase {
         XCTAssertTrue(L.isLowerTriangular)
         XCTAssertTrue(U.isUpperTriangular)
         XCTAssertEqual(_A.permute(rowsBy: P, colsBy: Q), L * U)
+    }
+    
+    func testFactorize() {
+        let A: M<_5, _5> = [
+            1, 0, 1, 0, 2,
+            0, 0, 0, 3, 0,
+            0, 0, 2, 0, 3,
+            1, 0, 0, 1, 0,
+            0, 0, 1, 0, 1,
+        ]
+        let e = A.LUfactorize()
+        let (P, Q, L, U) = e.PQLU
+        
+        XCTAssertTrue(L.isLowerTriangular)
+        XCTAssertTrue(U.isUpperTriangular)
+        XCTAssertEqual(A.permute(rowsBy: P, colsBy: Q), L * U)
+    }
+
+    func testSolve() {
+        let A: M<_5, _5> = [
+            1, 0, 1, 0, 2,
+            0, 0, 0, 3, 0,
+            0, 0, 2, 0, 3,
+            1, 0, 0, 1, 0,
+            0, 0, 1, 0, 1,
+        ]
+        let b: M<_5, _1> = [14,12,21,5,8]
+        let e = A.LUfactorize()
+        
+        if let x = e.solve(b) {
+            XCTAssertEqual(A * x, b)
+        } else {
+            XCTFail()
+        }
+    }
+
+    func testSolve_noSolution() {
+        let A: M<_5, _5> = [
+            1, 0, 1, 0, 2,
+            0, 0, 0, 3, 0,
+            0, 0, 2, 0, 3,
+            1, 0, 0, 1, 0,
+            0, 0, 1, 0, 1,
+        ]
+        let b: M<_5, _1> = [14, 12, 21, 5, 7]
+        let e = A.LUfactorize()
+        
+        if let _ = e.solve(b) {
+            XCTFail()
+        } else {
+            // OK
+        }
+    }
+
+    func testSolve2() {
+        let A: M<_4, _6> = [
+            1, 0, 1, 2, 2, 3,
+            0, 2,-1, 3, 0,-1,
+            3,-1, 2, 0, 3, 5,
+            1, 3, 0, 1, 0, 3
+        ]
+        let b: M<_4, _1> = [40, 7, 52, 29]
+        let e = A.LUfactorize()
+        
+        if let x = e.solve(b) {
+            XCTAssertEqual(A * x, b)
+        } else {
+            XCTFail()
+        }
+    }
+
+    func testKernel() {
+        let A: M<_4, _6> = [
+            1, 0, 1, 2, 2, 3,
+            0, 2,-1, 3, 0,-1,
+            3,-1, 2, 0, 3, 5,
+            1, 3, 0, 1, 0, 3
+        ]
+        let e = A.LUfactorize()
+        XCTAssertEqual(e.nullity, 2)
+        
+        let K = e.kernel
+        print(K.detailDescription)
+        XCTAssertEqual(K.size.cols, 2)
+        XCTAssertTrue((A * K).isZero)
     }
 }
