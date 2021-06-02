@@ -83,6 +83,7 @@ public class MatrixEliminator<R: Ring> {
     }
     
     final func abort() {
+        log("Aborted.")
         aborted = true
     }
     

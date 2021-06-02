@@ -76,16 +76,29 @@ class LUFactorizationTests: XCTestCase {
         assert(L.isLowerTriangular)
         assert(U.isUpperTriangular)
         
-        print(L.detailDescription)
-        print(U.detailDescription)
-        print(S.detailDescription)
-        print(A.impl.permute(rowsBy: P, colsBy: Q).detailDescription)
-        print((L * U).detailDescription)
-
         let r = L.size.cols
         XCTAssertEqual(
             A.impl.permute(rowsBy: P, colsBy: Q),
             (L * U) + (.zero(size: (r, r)) ⊕ S)
         )
+    }
+    
+    func testFullLU() {
+        let A: M<_5, _5> = [
+            1, 0, 1, 0, 2,
+            0, 0, 0, 3, 0,
+            0, 0, 2, 0, 3,
+            1, 0, 0, 1, 0,
+            0, 0, 1, 0, 1,
+        ]
+        let _A = A.impl
+        guard let (P, Q, L, U) = LUFactorizer.fullLU(A.impl) else {
+            XCTFail()
+            return
+        }
+        
+        XCTAssertTrue(L.isLowerTriangular)
+        XCTAssertTrue(U.isUpperTriangular)
+        XCTAssertEqual(_A.permute(rowsBy: P, colsBy: Q), L * U)
     }
 }

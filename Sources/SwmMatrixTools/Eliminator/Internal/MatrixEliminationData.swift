@@ -60,6 +60,10 @@ internal final class MatrixEliminationData<R: Ring> {
         self.tracker = RowHeadTracker(headEntries)
     }
     
+    var countNonZeroRows: Int {
+        rows.count{ !$0.isEmpty }
+    }
+    
     @inlinable
     func row(_ i: Int) -> Row {
         rows[i]
@@ -114,7 +118,7 @@ internal final class MatrixEliminationData<R: Ring> {
         setup(size: size, entries: allEntries, transpose: true)
     }
     
-    func resultAs<Impl, n, m>(_ type: MatrixIF<Impl, n, m>.Type) -> MatrixIF<Impl, n, m> where Impl.BaseRing == R {
+    func resultAs<M: MatrixImpl>(_ type: M.Type) -> M where M.BaseRing == R {
         .init(size: size) { setEntry in
             for (i, row) in rows.enumerated() {
                 for e in row {
@@ -122,6 +126,10 @@ internal final class MatrixEliminationData<R: Ring> {
                 }
             }
         }
+    }
+    
+    func resultAs<M, n, m>(_ type: MatrixIF<M, n, m>.Type) -> MatrixIF<M, n, m> where M.BaseRing == R {
+        .init(resultAs(M.self))
     }
     
     // only for debug

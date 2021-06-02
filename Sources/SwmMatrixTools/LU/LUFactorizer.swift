@@ -8,12 +8,15 @@
 import SwmCore
 
 public final class LUFactorizer<M: MatrixImpl & LUFactorizable> where M.BaseRing: EuclideanRing {
-    public static func factorize(_ A: M) -> (P: Permutation<anySize>, Q: Permutation<anySize>, L: M, U: M) {
+    public static func factorize(_ A: M) -> (P: Permutation<anySize>, Q: Permutation<anySize>, L: M, U: M)? {
         let (n, m) = A.size
         let (P1, Q1, L1, U1, S) = partialLU(A) // TODO continue until S is dense enough
         let r1 = L1.size.cols
         
-        let (P2, Q2, L2, U2) = fullLU(S)
+        guard let (P2, Q2, L2, U2) = fullLU(S) else {
+            return nil
+        }
+        
         let r2 = L2.size.cols
         let P = P2.shift(r1) * P1.extend(r2)
         let Q = Q2.shift(r1) * Q1.extend(r2)
@@ -66,8 +69,10 @@ public final class LUFactorizer<M: MatrixImpl & LUFactorizable> where M.BaseRing
         )
     }
     
-    public static func fullLU(_ A: M) -> (P: Permutation<anySize>, Q: Permutation<anySize>, L: M, U: M) {
-        fatalError("TODO")
+    public static func fullLU(_ A: M) -> (P: Permutation<anySize>, Q: Permutation<anySize>, L: M, U: M)? {
+        let e = LUEliminator(data: MatrixEliminationData(A))
+        e.run()
+        return e.PQLU(M.self)
     }
 }
 
