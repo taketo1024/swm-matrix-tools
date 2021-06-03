@@ -8,33 +8,20 @@
 import SwmCore
 
 public final class LUFactorizer<M: MatrixImpl & LUFactorizable> {
-    public static func factorize(_ A: M) -> (P: Permutation<anySize>, Q: Permutation<anySize>, L: M, U: M)? {
-        let (P1, Q1, L1, U1, S) = partialLU(A) // TODO continue until S is dense enough
+    public typealias Result = (P: Permutation<anySize>, Q: Permutation<anySize>, L: M, U: M)
+    
+    public static func factorize(_ A: M) -> Result? {
+        let (res1, S) = partialLU(A) // TODO continue until S is dense enough
         if S.isZero {
-            return (P1, Q1, L1, U1)
+            return res1
         }
-        let r1 = L1.size.cols
-
-        guard let (P2s, Q2s, L2s, U2s) = fullLU(S) else {
+        guard let res2 = fullLU(S) else {
             return nil
         }
-        
-        let r2 = L2s.size.cols
-        let P2 = P2s.shifted(r1)
-        let Q2 = Q2s.shifted(r1)
-
-        let L2 = M.zero(size: (r1, r2)).stack (L2s)
-        let U2 = M.zero(size: (r2, r1)).concat(U2s)
-        
-        let P = P2 * P1
-        let Q = Q2 * Q1
-        let L = L1.permuteRows(by: P2).concat(L2)
-        let U = U1.permuteCols(by: Q2).stack (U2)
-        
-        return (P, Q, L, U)
+        return compose(res1, res2)
     }
     
-    public static func partialLU(_ A: M) -> (P: Permutation<anySize>, Q: Permutation<anySize>, L: M, U: M, S: M) {
+    public static func partialLU(_ A: M) -> (result: Result, S: M) {
         // If
         //
         //   PAQ = [L, B]
@@ -71,17 +58,39 @@ public final class LUFactorizer<M: MatrixImpl & LUFactorizable> {
         let S = D - C * B1
         
         return (
-            P: P,
-            Q: Q,
-            L: L.stack(C),
-            U: .identity(size: (r, r)).concat(B1),
+            result: (
+                P: P,
+                Q: Q,
+                L: L.stack(C),
+                U: .identity(size: (r, r)).concat(B1)
+            ),
             S: S
         )
     }
     
-    public static func fullLU(_ A: M) -> (P: Permutation<anySize>, Q: Permutation<anySize>, L: M, U: M)? {
+    public static func fullLU(_ A: M) -> Result? {
         let e = LUEliminator(data: MatrixEliminationData(A))
         e.run()
         return e.PQLU(M.self)
+    }
+    
+    private static func compose(_ res1: Result, _ res2: Result) -> Result {
+        let (P1, Q1, L1, U1) = res1
+        let r1 = L1.size.cols
+
+        let (P2s, Q2s, L2s, U2s) = res2
+        let r2 = L2s.size.cols
+        let P2 = P2s.shifted(r1)
+        let Q2 = Q2s.shifted(r1)
+
+        let L2 = M.zero(size: (r1, r2)).stack (L2s)
+        let U2 = M.zero(size: (r2, r1)).concat(U2s)
+        
+        let P = P2 * P1
+        let Q = Q2 * Q1
+        let L = L1.permuteRows(by: P2).concat(L2)
+        let U = U1.permuteCols(by: Q2).stack (U2)
+        
+        return (P, Q, L, U)
     }
 }

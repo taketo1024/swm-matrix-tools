@@ -95,7 +95,7 @@ class LUFactorizationTests: XCTestCase {
             0, 4, 0, 1, 0, 0, 2, 0, 1,
             1, 0, 1, 0, 1, 1, 0, 1, 1
         ]
-        let (P, Q, L, U, S) = LUFactorizer.partialLU(A.impl)
+        let ((P, Q, L, U), S) = LUFactorizer.partialLU(A.impl)
         XCTAssertTrue(L.isLowerTriangular)
         XCTAssertTrue(U.isUpperTriangular)
         
@@ -114,7 +114,7 @@ class LUFactorizationTests: XCTestCase {
             1, 0, 0, 1, 0,
             0, 0, 1, 0, 1,
         ]
-        let (P, Q, L, U, S) = LUFactorizer.partialLU(A.impl)
+        let ((P, Q, L, U), S) = LUFactorizer.partialLU(A.impl)
         XCTAssertTrue(L.isLowerTriangular)
         XCTAssertTrue(U.isUpperTriangular)
         

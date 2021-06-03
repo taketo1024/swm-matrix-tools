@@ -89,7 +89,7 @@ internal class LUEliminator<R: Ring>: MatrixEliminator<R> {
     
     // MARK: PQLU results
     
-    func PQLU<M: MatrixImpl>(_ type: M.Type) -> (P: Permutation<anySize>, Q: Permutation<anySize>, L: M, U: M)? where M.BaseRing == R {
+    func PQLU<M: MatrixImpl>(_ type: M.Type) -> LUFactorizer<M>.Result? where M.BaseRing == R {
         !aborted ? (P, Q, L(M.self), U(M.self)) : nil
     }
     
