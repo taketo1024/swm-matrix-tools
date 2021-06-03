@@ -9,13 +9,13 @@
 import SwmCore
 
 public class MatrixEliminator<R: Ring> {
-    let data: MatrixEliminationData<R>
-    var debug: Bool = false
-    var aborted: Bool = false
+    internal let data: MatrixEliminationData<R>
+    internal var rowOps: [RowElementaryOperation<R>]
+    internal var colOps: [ColElementaryOperation<R>]
     
-    public private(set) var rowOps: [RowElementaryOperation<R>]
-    public private(set) var colOps: [ColElementaryOperation<R>]
-    
+    public private(set) var aborted: Bool = false
+    public var debug: Bool = false
+
     required init(data: MatrixEliminationData<R>) {
         self.data = data
         self.rowOps = []
