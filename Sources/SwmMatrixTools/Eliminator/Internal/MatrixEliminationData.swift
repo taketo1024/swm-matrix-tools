@@ -87,7 +87,7 @@ internal final class MatrixEliminationData<R: Ring> {
     
     var headEntries: [MatrixEntry<R>] {
         rows.enumerated().compactMap { (i, row) in
-            row.headElement.map { (j, a) in
+            (row.head?.element).flatMap{ (j, a) in
                 (i, j, a)
             }
         }
@@ -97,21 +97,17 @@ internal final class MatrixEliminationData<R: Ring> {
     func colEntries(withHeadInCol j: Int) -> [ColEntry<R>] {
         tracker
             .rows(withHeadInCol: j)
-            .map{ i in (i, row(i).headElement!.value) }
+            .map{ i in (i, row(i).head!.element.value) }
     }
     
     func colEntries(in j0: Int, aboveRow i0: Int) -> [ColEntry<R>] {
         (0 ..< i0).compactMap { i -> ColEntry<R>? in
-            if let a = find(i, j0).hit?.pointee.element.value {
+            if let (_, a) = row(i).first(where: { $0.col == j0 }, while: { $0.col <= j0 }) {
                 return (i, a)
             } else {
                 return nil
             }
         }
-    }
-    
-    func find(_ i: Int, _ j: Int) -> (hit: Row.NodePointer?, prev: Row.NodePointer?) {
-        rows[i].find({ e in e.col == j}, while: { e in e.col <= j})
     }
     
     func transpose() {
@@ -166,11 +162,11 @@ internal final class MatrixEliminationData<R: Ring> {
             return self
         }
         
-        let j2 = row(i2).headElement?.col
+        let j2 = row(i2).head?.element.col
         let w = addRow(row(i1), into: row(i2), multipliedBy: r)
         
         rowWeights[i2] += w
-        tracker.headMoved(inRow: i2, fromCol: j2, toCol: row(i2).headElement?.col)
+        tracker.headMoved(inRow: i2, fromCol: j2, toCol: row(i2).head?.element.col)
         
         return self
     }
@@ -184,7 +180,7 @@ internal final class MatrixEliminationData<R: Ring> {
         
         let rows = to.map{ $0.row }
         let oldCols = rows.map{ i in
-            row(i).headElement?.col
+            row(i).head?.element.col
         }
         
         let weights = to.parallelMap { (i, r) in
@@ -196,7 +192,7 @@ internal final class MatrixEliminationData<R: Ring> {
         }
         
         for (i, j) in zip(rows, oldCols) {
-            tracker.headMoved(inRow: i, fromCol: j, toCol: row(i).headElement?.col)
+            tracker.headMoved(inRow: i, fromCol: j, toCol: row(i).head?.element.col)
         }
         
         return self
@@ -214,8 +210,8 @@ internal final class MatrixEliminationData<R: Ring> {
 
         var w = 0.0
         
-        let fromHeadCol = from.headElement!.col
-        if to.isEmpty || fromHeadCol < to.headElement!.col {
+        let fromHeadCol = from.head!.element.col
+        if to.isEmpty || fromHeadCol < to.head!.element.col {
             
             // from: ●-->○-->○----->○-------->
             //   to:            ●------->○--->
@@ -229,7 +225,7 @@ internal final class MatrixEliminationData<R: Ring> {
         }
         
         var fromItr = from.makeIterator()
-        var toPtr = to.headPointer!
+        var toPtr = to.head!
         var toPrevPtr = toPtr
         
         while let (j1, a1) = fromItr.next() {
@@ -244,11 +240,11 @@ internal final class MatrixEliminationData<R: Ring> {
             // from: ------------->●--->○-------->
             //   to: -->○----->●------------>○--->
 
-            while let next = toPtr.pointee.next, next.pointee.element.col <= j1 {
+            while let next = toPtr.next, next.element.col <= j1 {
                 (toPrevPtr, toPtr) = (toPtr, next)
             }
             
-            let (j2, a2) = toPtr.pointee.element
+            let (j2, a2) = toPtr.element
             
             if j1 == j2 {
                 //                     j1 = j2
@@ -259,9 +255,9 @@ internal final class MatrixEliminationData<R: Ring> {
                 
                 if b.isZero && toPtr != toPrevPtr {
                     toPtr = toPrevPtr
-                    toPtr.pointee.dropNext()
+                    toPtr.dropNext()
                 } else {
-                    toPtr.pointee.element.value = b
+                    toPtr.element.value = b
                 }
                 
                 w += weight(of: b) - weight(of: a2)
@@ -272,14 +268,14 @@ internal final class MatrixEliminationData<R: Ring> {
                 //   to: -->○----->●------------>○--->
 
                 let b = r * a1
-                toPtr.pointee.insertNext( RowEntry(j1, b) )
-                (toPrevPtr, toPtr) = (toPtr, toPtr.pointee.next!)
+                toPtr.insertNext( RowEntry(j1, b) )
+                (toPrevPtr, toPtr) = (toPtr, toPtr.next!)
                 
                 w += weight(of: b)
             }
         }
         
-        if to.headElement!.value.isZero {
+        if to.head!.element.value.isZero {
             to.dropHead()
         }
         
@@ -300,8 +296,8 @@ internal final class MatrixEliminationData<R: Ring> {
     
     @discardableResult
     func swapRows(_ i1: Int, _ i2: Int) -> Self {
-        let j1 = row(i1).headElement?.col
-        let j2 = row(i2).headElement?.col
+        let j1 = row(i1).head?.element.col
+        let j2 = row(i2).head?.element.col
         
         rows.swapAt(i1, i2)
         rowWeights.swapAt(i1, i2)

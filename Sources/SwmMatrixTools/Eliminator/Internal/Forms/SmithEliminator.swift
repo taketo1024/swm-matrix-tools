@@ -100,7 +100,8 @@ internal final class SmithEliminator<R: EuclideanRing>: MatrixEliminator<R> {
     }
     
     private func setEntry(_ i: Int, _ r: R) {
-        data.row(i).headPointer!.pointee.element.value = r
+        var p = data.row(i).head!
+        p.element.value = r
         diagonals[i] = r
     }
 }

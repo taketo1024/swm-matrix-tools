@@ -96,7 +96,7 @@ internal class ReducedRowEchelonEliminator<R: EuclideanRing>: RowEchelonEliminat
     }
     
     override func reduceCurrentCol() {
-        let a0 = data.row(currentRow).headElement!.value
+        let a0 = data.row(currentRow).head!.element.value
         let targets = data
             .colEntries(in: currentCol, aboveRow: currentRow)
             .compactMap { (i, a) -> (Int, R)? in

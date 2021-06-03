@@ -119,7 +119,7 @@ public final class MatrixPivotFinder<R: Ring> {
         var candidates: [Int : Int] = [:] // col -> row
         
         for i in sortedRows {
-            let (j, a) = data.row(i).headElement!
+            let (j, a) = data.row(i).head!.element
             if isCandidate(a) && !candidates.contains(key: j) {
                 candidates[j] = i
             }
