@@ -62,7 +62,7 @@ public final class LUFactorizer<M: MatrixImpl & LUFactorizable> {
                 P: P,
                 Q: Q,
                 L: L.stack(C),
-                U: .identity(size: (r, r)).concat(B1)
+                U: M.identity(size: (r, r)).concat(B1)
             ),
             S: S
         )

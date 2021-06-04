@@ -99,13 +99,13 @@ internal class LUEliminator<R: Ring>: MatrixEliminator<R> {
         for case let .SwapRows(i, j) in rowOps {
             indices.swapAt(i, j)
         }
-        return .init(length: n, indices: indices).inverse!
+        return Permutation(length: n, indices: indices).inverse!
     }
     
     private var Q: Permutation<anySize> {
         let m = data.size.cols
         let indices = data.headEntries.map { $0.col }
-        return .init(length: m, indices: indices, fillRemaining: true).inverse!
+        return Permutation(length: m, indices: indices, fillRemaining: true).inverse!
     }
     
     private func L<M: MatrixImpl>(_ type: M.Type) -> M where M.BaseRing == R {

@@ -78,7 +78,7 @@ public final class MatrixPivotFinder<R: Ring> {
     }
     
     private func asPermutation(_ length: Int, _ order: [Int]) -> Permutation<anySize> {
-        .init(length: length, indices: order, fillRemaining: true).inverse!
+        Permutation(length: length, indices: order, fillRemaining: true).inverse!
     }
     
     public func run() {
