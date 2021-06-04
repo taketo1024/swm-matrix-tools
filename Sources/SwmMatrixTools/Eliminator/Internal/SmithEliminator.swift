@@ -18,7 +18,7 @@ internal final class SmithEliminator<R: EuclideanRing>: MatrixEliminator<R> {
     
     override func prepare() {
         subrun(DiagonalEliminator.self)
-        diagonals = worker.headEntries.map { $0.value }
+        diagonals = data.headEntries.map { $0.value }
     }
     
     override func isDone() -> Bool {
@@ -56,7 +56,7 @@ internal final class SmithEliminator<R: EuclideanRing>: MatrixEliminator<R> {
     private func findPivot() -> (Int, R)? {
         diagonals[currentIndex...]
             .enumerated()
-            .min { (c1, c2) in c1.1.matrixEliminationWeight < c2.1.matrixEliminationWeight }
+            .min { $0.1.euclideanDegree }
             .map{ (i, a) in (i + currentIndex, a) }
     }
     
@@ -100,7 +100,8 @@ internal final class SmithEliminator<R: EuclideanRing>: MatrixEliminator<R> {
     }
     
     private func setEntry(_ i: Int, _ r: R) {
-        worker.row(i).headPointer!.pointee.element.value = r
+        var p = data.row(i).head!
+        p.element.value = r
         diagonals[i] = r
     }
 }

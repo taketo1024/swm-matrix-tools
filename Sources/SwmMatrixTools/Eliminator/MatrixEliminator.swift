@@ -9,15 +9,15 @@
 import SwmCore
 
 public class MatrixEliminator<R: Ring> {
-    let worker: MatrixEliminationWorker<R>
-    var debug: Bool = false
-    var aborted: Bool = false
+    internal let data: MatrixEliminationData<R>
+    internal var rowOps: [RowElementaryOperation<R>]
+    internal var colOps: [ColElementaryOperation<R>]
     
-    public private(set) var rowOps: [RowElementaryOperation<R>]
-    public private(set) var colOps: [ColElementaryOperation<R>]
-    
-    required init(worker: MatrixEliminationWorker<R>) {
-        self.worker = worker
+    public private(set) var aborted: Bool = false
+    public var debug: Bool = false
+
+    required init(data: MatrixEliminationData<R>) {
+        self.data = data
         self.rowOps = []
         self.colOps = []
     }
@@ -53,9 +53,8 @@ public class MatrixEliminator<R: Ring> {
     public func result<Impl, n, m>(as: MatrixEliminationResult<Impl, n, m>.Type) -> MatrixEliminationResult<Impl, n, m> where Impl.BaseRing == R {
         .init(
             form: form,
-            size: worker.size,
-            entries: worker.entries,
-            headEntries: worker.headEntries,
+            result: data.resultAs(MatrixIF.self),
+            headEntries: data.headEntries,
             rowOps: rowOps,
             colOps: colOps
         )
@@ -68,7 +67,7 @@ public class MatrixEliminator<R: Ring> {
     // MARK: Internal methods
 
     final func subrun(_ type: MatrixEliminator<R>.Type, transpose: Bool = false) {
-        let e = type.init(worker: worker)
+        let e = type.init(data: data)
         if transpose {
             e.transpose()
         }
@@ -84,11 +83,12 @@ public class MatrixEliminator<R: Ring> {
     }
     
     final func abort() {
+        log("Aborted.")
         aborted = true
     }
     
     final func apply(_ s: RowElementaryOperation<R>) {
-        worker.apply(s)
+        data.apply(s)
         append(s)
     }
 
@@ -109,7 +109,7 @@ public class MatrixEliminator<R: Ring> {
     
     final func transpose() {
         log("Transpose: \(self)")
-        worker.transpose()
+        data.transpose()
         (rowOps, colOps) = (colOps.map{ $0.transposed }, rowOps.map{ $0.transposed })
     }
     
@@ -120,12 +120,10 @@ public class MatrixEliminator<R: Ring> {
     }
     
     final func printCurrentMatrix() {
-        let (size, entries) = (worker.size, worker.entries)
-        if size.rows > 100 || size.cols > 100 {
+        if data.size.rows > 100 || data.size.cols > 100 {
             return
         }
-        
-        print("\n", AnySizeMatrix(size: size, entries: entries).detailDescription, "\n")
+        print("\n", data.resultAs(AnySizeMatrix.self).detailDescription, "\n")
     }
 
     // MARK: Methods to be overridden
@@ -135,4 +133,39 @@ public class MatrixEliminator<R: Ring> {
     func isDone() -> Bool { true }
     func iteration() {}
     func finalize() {}
+}
+
+extension MatrixEliminator where R: EuclideanRing {
+    public static func eliminate<Impl, n, m>(_ A: MatrixIF<Impl, n, m>, form: MatrixEliminationForm) -> MatrixEliminationResult<Impl, n, m>
+    where Impl: MatrixImpl, Impl.BaseRing == R { 
+        let (type, transpose) = eliminatorType(form)
+        let data = MatrixEliminationData(A, transpose: transpose)
+        let e = type.init(data: data)
+        
+        e.run()
+        
+        return !transpose
+            ? e.result(as: MatrixEliminationResult.self)
+            : e.result(as: MatrixEliminationResult.self).transposed
+    }
+    
+    private static func eliminatorType(_ form: MatrixEliminationForm) -> (type: MatrixEliminator<R>.Type, transpose: Bool) {
+        switch form {
+        case .RowEchelon:
+            return (RowEchelonEliminator.self, false)
+        case .ColEchelon:
+            return (RowEchelonEliminator.self, true)
+        case .RowHermite:
+            return (ReducedRowEchelonEliminator.self, false)
+        case .ColHermite:
+            return (ReducedRowEchelonEliminator.self, true)
+        case .Diagonal:
+            return (DiagonalEliminator.self, false)
+        case .Smith:
+            return (SmithEliminator.self, false)
+        default:
+            return (MatrixEliminator.self, false)
+        }
+    }
+
 }

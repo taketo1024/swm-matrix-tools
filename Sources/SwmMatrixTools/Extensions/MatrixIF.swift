@@ -7,42 +7,15 @@
 
 import SwmCore
 
-extension MatrixIF where BaseRing: EuclideanRing {
-    public func eliminate(form: MatrixEliminationForm = .Diagonal) -> MatrixEliminationResult<Impl, n, m> {
-        let (type, transpose) = eliminatorType(form)
-        let worker = !transpose
-            ? MatrixEliminationWorker(self)
-            : MatrixEliminationWorker(self.transposed) // TODO directly pass tranposed entries
-        
-        let e = type.init(worker: worker)
-        e.run()
-        
-        return !transpose
-            ? e.result(as: MatrixEliminationResult.self)
-            : e.result(as: MatrixEliminationResult.self).transposed
+extension MatrixIF {
+    public var isLowerTriangular: Bool {
+        impl.isLowerTriangular
     }
     
-    private func eliminatorType(_ form: MatrixEliminationForm) -> (MatrixEliminator<BaseRing>.Type, Bool) {
-        switch form {
-        case .RowEchelon:
-            return (RowEchelonEliminator.self, false)
-        case .ColEchelon:
-            return (RowEchelonEliminator.self, true)
-        case .RowHermite:
-            return (ReducedRowEchelonEliminator.self, false)
-        case .ColHermite:
-            return (ReducedRowEchelonEliminator.self, true)
-        case .Diagonal:
-            return (DiagonalEliminator.self, false)
-        case .Smith:
-            return (SmithEliminator.self, false)
-        default:
-            return (MatrixEliminator.self, false)
-        }
+    public var isUpperTriangular: Bool {
+        impl.isUpperTriangular
     }
-}
-
-extension MatrixIF {
+    
     public static func rowUnits<S>(size: MatrixSize, indices: S) -> Self
     where S: Sequence, S.Element == Int {
         assert(size.rows == indices.count)
@@ -61,16 +34,62 @@ extension MatrixIF {
         )
     }
     
-    public func appliedRowOperations<S>(_ ops: S) -> Self
+    internal func appliedRowOperations<S>(_ ops: S) -> Self
     where S: Sequence, S.Element == RowElementaryOperation<BaseRing> {
-        MatrixEliminationWorker(
-            size: size,
-            entries: nonZeroEntries
-        ).applyAll(ops).resultAs(Self.self)
+        MatrixEliminationData(self).applyAll(ops).resultAs(Self.self)
     }
     
-    public func appliedColOperations<S>(_ ops: S) -> Self
+    internal func appliedColOperations<S>(_ ops: S) -> Self
     where S: Sequence, S.Element == ColElementaryOperation<BaseRing> {
         transposed.appliedRowOperations(ops.map{ $0.transposed }).transposed
+    }
+}
+
+extension MatrixIF {
+    public func findPivots(mode: PivotMode = .rowBased) -> (pivots: [(Int, Int)], P: Permutation<n>, Q: Permutation<m>) {
+        let pf = MatrixPivotFinder(self, mode: mode)
+        pf.run()
+        
+        return (
+            pivots: pf.pivots,
+            P: pf.rowPermutation.as(Permutation.self),
+            Q: pf.colPermutation.as(Permutation.self)
+        )
+    }
+}
+
+extension MatrixIF where BaseRing: EuclideanRing {
+    public func eliminate(form: MatrixEliminationForm = .Diagonal) -> MatrixEliminationResult<Impl, n, m> {
+        MatrixEliminator.eliminate(self, form: form)
+    }
+}
+
+extension MatrixIF where Impl: LUFactorizable {
+    public func LUfactorize() -> LUFactorizationResult<Impl, n, m> {
+        let (P, Q, L, U) = impl.LUfactorize()
+        return LUFactorizationResult(
+            P: P.as(Permutation.self),
+            Q: Q.as(Permutation.self),
+            L: .init(L),
+            U: .init(U)
+        )
+    }
+    
+    public static func solveLowerTrapezoidal<k>(_ L: Self, _ b: MatrixIF<Impl, n, k>) -> MatrixIF<Impl, m, k>? {
+        Impl.solveLowerTrapezoidal(L.impl, b.impl).flatMap{ .init($0) }
+    }
+    
+    public static func solveUpperTrapezoidal<k>(_ L: Self, _ b: MatrixIF<Impl, n, k>) -> MatrixIF<Impl, m, k> {
+        .init(Impl.solveUpperTrapezoidal(L.impl, b.impl))
+    }
+}
+
+extension MatrixIF where Impl: LUFactorizable, n == m {
+    public static func solveLowerTriangular<k>(_ L: Self, _ b: MatrixIF<Impl, n, k>) -> MatrixIF<Impl, m, k> {
+        .init(Impl.solveLowerTriangular(L.impl, b.impl))
+    }
+    
+    public static func solveUpperTriangular<k>(_ U: Self, _ b: MatrixIF<Impl, n, k>) -> MatrixIF<Impl, m, k> {
+        .init(Impl.solveUpperTriangular(U.impl, b.impl))
     }
 }

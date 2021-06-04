@@ -11,53 +11,27 @@ public struct MatrixEliminationResult<Impl: MatrixImpl, n: SizeType, m: SizeType
     public typealias R = Impl.BaseRing
     
     public let form: MatrixEliminationForm
-    public let size: MatrixSize
-    public let entries: AnySequence<MatrixEntry<R>>
-    public let headEntries: AnySequence<MatrixEntry<R>>
-    public let rowOps: [RowElementaryOperation<R>]
-    public let colOps: [ColElementaryOperation<R>]
+    public let result: MatrixIF<Impl, n, m>
+    public let headEntries: [MatrixEntry<R>]
+    internal let rowOps: [RowElementaryOperation<R>]
+    internal let colOps: [ColElementaryOperation<R>]
     
     private let cache: Cache<String, MatrixIF<Impl, anySize, anySize>> = .empty
     
-    public init(form: MatrixEliminationForm, size: MatrixSize, entries: AnySequence<MatrixEntry<R>>, headEntries: AnySequence<MatrixEntry<R>>, rowOps: [RowElementaryOperation<R>], colOps: [ColElementaryOperation<R>]) {
+    internal init(form: MatrixEliminationForm, result: MatrixIF<Impl, n, m>, headEntries: [MatrixEntry<R>], rowOps: [RowElementaryOperation<R>], colOps: [ColElementaryOperation<R>]) {
         self.form = form
-        self.size = size
-        self.entries = entries
+        self.result = result
         self.headEntries = headEntries
         self.rowOps = rowOps
         self.colOps = colOps
     }
     
-    public var transposed: MatrixEliminationResult<Impl, m, n> {
-        func transpose<S: Sequence>(_ entries: S) -> AnySequence<MatrixEntry<R>> where S.Element == MatrixEntry<R> {
-            AnySequence(entries.lazy.map{ (i, j, a) in (j, i, a) })
-        }
-        return .init(
-            form: form.transposed,
-            size: (size.cols, size.rows),
-            entries: transpose(entries),
-            headEntries: transpose(headEntries),
-            rowOps: colOps.map{ $0.transposed },
-            colOps: rowOps.map{ $0.transposed }
-        )
-    }
-    
-    public var result: MatrixIF<Impl, n, m> {
-        cache.getOrSet(key: "result") {
-            .init(size: size, entries: entries)
-        }.as(MatrixIF.self)
+    public var size: MatrixSize {
+        result.size
     }
     
     public var isSquare: Bool {
         size.rows == size.cols
-    }
-    
-    public var isDiagonal: Bool {
-        entries.allSatisfy { (i, j, _) in i == j }
-    }
-    
-    public var isIdentity: Bool {
-        isSquare && entries.allSatisfy { (i, j, a) in i == j && a.isIdentity }
     }
     
     public var rank: Int {
@@ -108,6 +82,26 @@ public struct MatrixEliminationResult<Impl: MatrixImpl, n: SizeType, m: SizeType
     private var colOpsInverse: [ColElementaryOperation<R>] {
         colOps.reversed().map{ $0.inverse }
     }
+    
+    public var transposed: MatrixEliminationResult<Impl, m, n> {
+        return .init(
+            form: form.transposed,
+            result: result.transposed,
+            headEntries: headEntries.map{ (i, j, a) in (j, i, a) },
+            rowOps: colOps.map{ $0.transposed },
+            colOps: rowOps.map{ $0.transposed }
+        )
+    }
+    
+    public func precompose(rowOps: [RowElementaryOperation<R>], colOps: [ColElementaryOperation<R>]) -> Self {
+        .init(
+            form: form,
+            result: result,
+            headEntries: headEntries,
+            rowOps: rowOps + self.rowOps,
+            colOps: colOps + self.colOps
+        )
+    }
 }
 
 extension MatrixEliminationResult where n == m {
@@ -124,22 +118,15 @@ extension MatrixEliminationResult where n == m {
     
     public var inverse: MatrixIF<Impl, n, n>? {
         assert(isSquare)
-        return (isIdentity) ? right * left : nil
+        return (result.isIdentity) ? right * left : nil
     }
 }
 
 extension MatrixEliminationResult where R: EuclideanRing {
     // eliminate again
     public func eliminate(form: MatrixEliminationForm = .Diagonal) -> MatrixEliminationResult<Impl, n, m> {
-        let e = result.eliminate(form: form)
-        return .init(
-            form: form,
-            size: size,
-            entries: e.entries,
-            headEntries: e.headEntries,
-            rowOps: rowOps + e.rowOps,
-            colOps: colOps + e.colOps
-        )
+        result.eliminate(form: form)
+            .precompose(rowOps: rowOps, colOps: colOps)
     }
 }
 
@@ -230,7 +217,7 @@ extension MatrixEliminationResult where R: EuclideanRing {
     // where y = Q^{-1}x <==> x = Qy.
     
     public func solve(_ b: ColVectorIF<Impl, n>) -> ColVectorIF<Impl, m>? {
-        assert(isDiagonal) // TODO support non diagonal cases.
+        assert(form == .Diagonal) // TODO support non diagonal cases.
         
         let n = size.rows
         let r = rank
