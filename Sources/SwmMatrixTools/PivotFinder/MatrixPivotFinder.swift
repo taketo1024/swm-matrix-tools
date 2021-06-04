@@ -17,7 +17,6 @@
 
 import SwmCore
 import Dispatch
-import TSCBasic
 
 public enum PivotMode {
     case rowBased, colBased
@@ -242,15 +241,16 @@ public final class MatrixPivotFinder<R: Ring> {
     }
     
     private func sortPivots() -> [(Int, Int)] {
-        let tree = Dictionary(keys: pivotTable.keys) { j1 -> [Int] in
+        let tree = PlainGraph(structure: Dictionary(keys: pivotTable.keys) { j1 -> [Int] in
             let i1 = pivotTable[j1]!
             return data.row(i1).map{ $0.col }.filter { j2 in
                 j1 != j2 && pivotTable.contains(key: j2)
             }
-        }
-        let sorted = try! topologicalSort(tree.keys.toArray(), successors: { j in tree[j] ?? [] })
-        return sorted.map { j in
-            (pivotTable[j]!, j)
+        })
+        let sorted = tree.topologicalSort()
+        return sorted.map { v in
+            let j = v.id
+            return (pivotTable[j]!, j)
         }
     }
     
