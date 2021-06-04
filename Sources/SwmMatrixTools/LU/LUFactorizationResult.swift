@@ -59,6 +59,17 @@ public struct LUFactorizationResult<Impl: MatrixImpl & LUFactorizable, n: SizeTy
         return I.permuteRows(by: P.inverse!)
     }
     
+    public var cokernelProjector: (Matrix<n, _1>) -> (Matrix<n, _1>) {
+        let r = rank
+        let L0 = L.submatrix(rowRange: 0 ..< r)
+        return { z in
+            let Pz = z.permuteRows(by: P)
+            let w = Pz.submatrix(rowRange: 0 ..< r)
+            let x = Matrix.solveLowerTriangular(L0, w)
+            return (Pz - L * x).permuteRows(by: P.inverse!)
+        }
+    }
+    
     public func solve<k>(_ b: MatrixIF<Impl, n, k>) -> MatrixIF<Impl, m, k>? {
         // Solve Ax = b
         //
