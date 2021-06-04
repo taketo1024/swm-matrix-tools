@@ -38,13 +38,17 @@ public struct LUFactorizationResult<Impl: MatrixImpl & LUFactorizable, n: SizeTy
         U.size.cols - rank
     }
     
+    // U = [U0, U1]. V = U0^-1 U1.
+    // Z = [-V; I] satisfies UZ = O.
+    // (PA)(QZ) = (LU)Z = O.
+    
     public var kernel: Matrix<m, anySize> {
         let (r, m) = U.size
         let U0 = U.submatrix(colRange: 0 ..< r)
         let U1 = U.submatrix(colRange: r ..< m)
-        let K = Matrix.solveUpperTriangular(U0, U1) // U0 * K = U1
+        let V = Matrix.solveUpperTriangular(U0, U1) // U0 * K = U1
         let I = Matrix<anySize, anySize>.identity(size: (m - r, m - r))
-        return (-K).stack(I).as(Matrix<m, anySize>.self).permuteRows(by: Q.inverse!)
+        return (-V).stack(I).as(Matrix<m, anySize>.self).permuteRows(by: Q.inverse!)
     }
     
     // Im(A) = Im(P^-1 L U Q^-1) = Im(P^-1 L).
@@ -59,14 +63,15 @@ public struct LUFactorizationResult<Impl: MatrixImpl & LUFactorizable, n: SizeTy
         return I.permuteRows(by: P.inverse!)
     }
     
-    public var cokernelProjector: (Matrix<n, _1>) -> (Matrix<n, _1>) {
-        let r = rank
+    public var cokernelProjector: (Matrix<n, _1>) -> (Matrix<anySize, _1>) {
+        let (n, r) = L.size
         let L0 = L.submatrix(rowRange: 0 ..< r)
+        
         return { z in
             let Pz = z.permuteRows(by: P)
             let w = Pz.submatrix(rowRange: 0 ..< r)
             let x = Matrix.solveLowerTriangular(L0, w)
-            return (Pz - L * x).permuteRows(by: P.inverse!)
+            return (Pz - L * x)[r ..< n]
         }
     }
     
@@ -85,6 +90,29 @@ public struct LUFactorizationResult<Impl: MatrixImpl & LUFactorizable, n: SizeTy
             let y = Matrix.solveUpperTrapezoidal(U, z)
             let x = y.permuteRows(by: Q.inverse!)
             return x
+        } else {
+            return nil
+        }
+    }
+    
+    // Given z \in Span(Z), solve (QZ)x = z.
+    // Put U' = [U0, U1; O, I]. Then
+    //
+    //   (U'Q^-1)(QZ) = [O; I].
+    //
+    // so we must have
+    //
+    //   - U Q^-1 z = 0
+    //   - x = (Q^-1 z)[r ..< m].
+    //
+    public func solveKernel(_ z: ColVectorIF<Impl, m>) -> ColVectorIF<Impl, anySize>? {
+        assert(U.size.cols == z.size.rows)
+        
+        let (r, m) = U.size
+        let w = z.permuteRows(by: Q)
+        
+        if (U * w).isZero {
+            return w[r ..< m]
         } else {
             return nil
         }
