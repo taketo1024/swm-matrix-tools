@@ -13,7 +13,7 @@ let package = Package(
     dependencies: [
         .package(
             url: "https://github.com/taketo1024/swm-core.git",
-            from: "1.1.0"
+            from: "1.2.1"
 //            path: "../swm-core/"
         ),
     ],
@@ -21,7 +21,7 @@ let package = Package(
         .target(
             name: "SwmMatrixTools",
             dependencies: [
-                .product(name: "SwmCore", package: "swm-core"),
+                .product(name: "SwmCore", package: "swm-core")
             ]
 		),
         .testTarget(
