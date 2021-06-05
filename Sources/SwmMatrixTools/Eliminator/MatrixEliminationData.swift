@@ -44,22 +44,25 @@ internal final class MatrixEliminationData<R: Ring> {
         }
         
         self.size = size
-        let group = entries.group{ c in c.row }
-        self.rows = (0 ..< size.rows).map { i in
-            if let list = group[i] {
-                let sorted = list.map{ c in RowEntry(c.col, c.value) }.sorted{ $0.col }
-                return Row(sorted)
-            } else {
-                return Row()
-            }
-        }
-        
+        self.rows = generateRows(entries)
         self.rowWeights = rows.map { row in
             row.sum{ weight(of: $0.value) }
         }
         self.tracker = RowHeadTracker(headEntries)
     }
     
+    private func generateRows<S>(_ entries: S) -> [Row]
+    where S: Sequence, S.Element == MatrixEntry<R> {
+        let group = entries.group{ c in c.row }
+        return (0 ..< size.rows).map { i in
+            let sorted = (group[i] ?? []).map{ (_, j, a) in
+                RowEntry(j, a)
+            }.sorted{ $0.col }
+            return Row(sorted)
+        }
+    }
+    
+    @inlinable
     var countNonZeroRows: Int {
         rows.count{ !$0.isEmpty }
     }

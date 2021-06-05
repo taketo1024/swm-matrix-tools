@@ -12,7 +12,7 @@ import SwmCore
 class LUFactorizationTests: XCTestCase {
     
     typealias R = RationalNumber
-    typealias M<n: SizeType, m: SizeType> = Matrix<R, n, m>
+    typealias M<n: SizeType, m: SizeType> = MatrixIF<CSCMatrixImpl<R>, n, m>
 
     func testSolveLowerTriangular() {
         let L: M<_4, _4> = [
