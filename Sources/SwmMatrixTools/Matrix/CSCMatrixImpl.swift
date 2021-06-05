@@ -9,7 +9,6 @@ import SwmCore
 
 //  CSC (compressed sparse colums) format.
 //  https://en.wikipedia.org/wiki/Sparse_matrix#Compressed_sparse_row_(CSR,_CRS_or_Yale_format)
-//  Not intended for fast computation.
 
 public struct CSCMatrixImpl<R: Ring>: SparseMatrixImpl {
     public typealias BaseRing = R
@@ -31,6 +30,20 @@ public struct CSCMatrixImpl<R: Ring>: SparseMatrixImpl {
         self.indexRanges = indexRanges
     }
     
+    fileprivate init(size: MatrixSize, compressing cols: [[ColEntry<R>]], sorted: Bool) {
+        let (values, rowIndices, indexRanges) = Self.compress(cols, sorted: sorted)
+        self.init(
+            size: size,
+            values: values,
+            rowIndices: rowIndices,
+            indexRanges: indexRanges
+        )
+    }
+    
+    @_specialize(where R == 𝐙)
+    @_specialize(where R == 𝐐)
+    @_specialize(where R == 𝐅₂)
+    
     public init(size: MatrixSize, initializer: (Initializer) -> Void) {
         assert(size.rows >= 0)
         assert(size.cols >= 0)
@@ -49,16 +62,6 @@ public struct CSCMatrixImpl<R: Ring>: SparseMatrixImpl {
         self.init(size: size, compressing: cols, sorted: false)
     }
 
-    public init(size: MatrixSize, compressing cols: [[ColEntry<R>]], sorted: Bool) {
-        let (values, rowIndices, indexRanges) = Self.compress(cols, sorted: sorted)
-        self.init(
-            size: size,
-            values: values,
-            rowIndices: rowIndices,
-            indexRanges: indexRanges
-        )
-    }
-    
     public subscript(i: Int, j: Int) -> R {
         get {
             let r = indexRange(j)
@@ -243,12 +246,13 @@ public struct CSCMatrixImpl<R: Ring>: SparseMatrixImpl {
                 .group{ $0.row }
                 .mapValues { $0.sum{ $0.value } }
                 .compactMap{ (i, a) in a.isZero ? nil : ColEntry(i, a) }
+                .sorted{ $0.row }
             }
         
         return .init(
             size: (a.size.rows, b.size.cols),
             compressing: cols,
-            sorted: false
+            sorted: true
         )
     }
     
@@ -261,6 +265,37 @@ public struct CSCMatrixImpl<R: Ring>: SparseMatrixImpl {
         return res
     }
     
+    @_specialize(where R == 𝐙)
+    @_specialize(where R == 𝐐)
+    @_specialize(where R == 𝐅₂)
+    
+    private static func compress(_ cols: [[ColEntry<R>]], sorted: Bool) -> ([R], [Int], [Int]) {
+        let nnz = cols.sum{ $0.count }
+        
+        var values: [R] = []
+        var rowIndices: [Int] = []
+        var indexRanges:  [Int] = []
+        
+        values.reserveCapacity(nnz)
+        rowIndices.reserveCapacity(nnz)
+        indexRanges.reserveCapacity(cols.count + 1)
+
+        var r = 0
+        indexRanges.append(0)
+        
+        for col in cols {
+            let scol = sorted ? col : col.sorted(by: { $0.row })
+            for (i, a) in scol {
+                values.append(a)
+                rowIndices.append(i)
+            }
+            r += col.count
+            indexRanges.append(r)
+        }
+        
+        return (values, rowIndices, indexRanges)
+    }
+
     public struct NonZeroEntryIterator: Sequence, IteratorProtocol {
         public typealias Element = MatrixEntry<R>
         
@@ -292,33 +327,6 @@ public struct CSCMatrixImpl<R: Ring>: SparseMatrixImpl {
             return (data.rowIndices[idx], col, data.values[idx])
         }
     }
-    
-    private static func compress(_ cols: [[ColEntry<R>]], sorted: Bool) -> ([R], [Int], [Int]) {
-        let nnz = cols.sum{ $0.count }
-        
-        var values: [R] = []
-        var rowIndices: [Int] = []
-        var indexRanges:  [Int] = []
-        
-        values.reserveCapacity(nnz)
-        rowIndices.reserveCapacity(nnz)
-        indexRanges.reserveCapacity(cols.count + 1)
-
-        var r = 0
-        indexRanges.append(0)
-        
-        for col in cols {
-            let scol = sorted ? col : col.sorted(by: { $0.row })
-            for (i, a) in scol {
-                values.append(a)
-                rowIndices.append(i)
-            }
-            r += col.count
-            indexRanges.append(r)
-        }
-        
-        return (values, rowIndices, indexRanges)
-    }
 }
 
 extension CSCMatrixImpl: LUFactorizable where BaseRing: Field {
@@ -337,28 +345,32 @@ extension CSCMatrixImpl: LUFactorizable where BaseRing: Field {
         return .init(size: (n, k), compressing: cols, sorted: true)
     }
     
+    @_specialize(where R == 𝐐)
+    @_specialize(where R == 𝐅₂)
+    
     private static func solveLowerTriangularSingle(_ L: Self, _ b: Self) -> [ColEntry<R>] {
         let n = L.size.rows
-        var w = b
+        var w = b.serialize()
         
         var x: [ColEntry<R>] = []
         x.reserveCapacity(n)
         
         for i in 0 ..< n {
-            guard let w_top = w.firstEntry(), w_top.row == i else {
+            let wi = w[i]
+            if wi.isZero {
                 continue
             }
-            let wi = w_top.value
             
             let l = L.colVector(i)
             let li = l.firstEntry()!.value
             let xi = wi * li.inverse!
             
             x.append((i, xi))
-            w = w - xi * l
+            
+            for (j, _, lj) in l.nonZeroEntries {
+                w[j] = w[j] - xi * lj
+            }
         }
-        
-        assert(w.isZero)
         
         return x
     }
@@ -378,28 +390,32 @@ extension CSCMatrixImpl: LUFactorizable where BaseRing: Field {
         return .init(size: (n, k), compressing: cols, sorted: true)
     }
     
+    @_specialize(where R == 𝐐)
+    @_specialize(where R == 𝐅₂)
+    
     private static func solveUpperTriangularSingle(_ U: Self, _ b: Self) -> [ColEntry<R>] {
         let n = U.size.rows
-        var w = b
+        var w = b.serialize()
         
         var x: [ColEntry<R>] = []
         x.reserveCapacity(n)
         
         for i in (0 ..< n).reversed() {
-            guard let w_bot = w.lastEntry(), w_bot.row == i else {
+            let wi = w[i]
+            if wi.isZero {
                 continue
             }
-            let wi = w_bot.value
-            
+
             let u = U.colVector(i)
             let ui = u.lastEntry()!.value
             let xi = wi * ui.inverse!
 
             x.append((i, xi))
-            w = w - xi * u
+            
+            for (j, _, uj) in u.nonZeroEntries {
+                w[j] = w[j] - xi * uj
+            }
         }
-        
-        assert(w.isZero)
         
         return x.reversed()
     }
