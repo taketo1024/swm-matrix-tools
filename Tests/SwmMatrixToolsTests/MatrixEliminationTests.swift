@@ -49,21 +49,22 @@ class MatrixEliminationTests: XCTestCase {
     
     func testFullRank_HNF() {
         let A: M5 = [2, -1, -2, -2, -3, 1, 2, -1, 1, -1, 2, -2, -4, -3, -6, 1, 7, 1, 5, 3, 1, -12, -6, -10, -11]
-        let E = A.eliminate(form: .RowHermite)
+        let E = A.eliminate(form: .RowEchelon)
         
-        XCTAssertTrue(E.result.isIdentity)
+        XCTAssertEqual(E.rank, 5)
+        XCTAssertTrue(E.result.isUpperTriangular)
     }
     
     func testRank4_HNF() {
         let A: M5 = [3, -5, -22, 20, 8, 6, -11, -50, 45, 18, -1, 2, 10, -9, -3, 3, -6, -30, 27, 10, -1, 2, 7, -6, -3]
-        let E = A.eliminate(form: .RowHermite)
+        let E = A.eliminate(form: .RowEchelon)
         
         XCTAssertEqual(E.rank, 4)
     }
     
     func testRank4_HNF_col() {
         let A: M5 = [3, -5, -22, 20, 8, 6, -11, -50, 45, 18, -1, 2, 10, -9, -3, 3, -6, -30, 27, 10, -1, 2, 7, -6, -3]
-        let E = A.eliminate(form: .ColHermite)
+        let E = A.eliminate(form: .ColEchelon)
         
         XCTAssertEqual(E.rank, 4)
     }

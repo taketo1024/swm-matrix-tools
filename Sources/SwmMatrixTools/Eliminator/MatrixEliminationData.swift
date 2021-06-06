@@ -103,16 +103,6 @@ internal final class MatrixEliminationData<R: Ring> {
             .map{ i in (i, row(i).head!.element.value) }
     }
     
-    func colEntries(in j0: Int, aboveRow i0: Int) -> [ColEntry<R>] {
-        (0 ..< i0).compactMap { i -> ColEntry<R>? in
-            if let (_, a) = row(i).first(where: { $0.col == j0 }, while: { $0.col <= j0 }) {
-                return (i, a)
-            } else {
-                return nil
-            }
-        }
-    }
-    
     func transpose() {
         setup(size: size, entries: allEntries, transpose: true)
     }

@@ -155,10 +155,6 @@ extension MatrixEliminator where R: EuclideanRing {
             return (RowEchelonEliminator.self, false)
         case .ColEchelon:
             return (RowEchelonEliminator.self, true)
-        case .RowHermite:
-            return (ReducedRowEchelonEliminator.self, false)
-        case .ColHermite:
-            return (ReducedRowEchelonEliminator.self, true)
         case .Diagonal:
             return (DiagonalEliminator.self, false)
         case .Smith:

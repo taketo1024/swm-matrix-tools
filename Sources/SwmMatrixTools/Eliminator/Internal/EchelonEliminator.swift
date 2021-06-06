@@ -8,7 +8,7 @@
 
 import SwmCore
 
-internal class RowEchelonEliminator<R: EuclideanRing>: MatrixEliminator<R> {
+internal final class RowEchelonEliminator<R: EuclideanRing>: MatrixEliminator<R> {
     var currentRow = 0
     var currentCol = 0
     
@@ -46,14 +46,8 @@ internal class RowEchelonEliminator<R: EuclideanRing>: MatrixEliminator<R> {
             apply(.SwapRows(pivot.row, currentRow))
         }
         
-        reduceCurrentCol()
-        
         currentRow += 1
         currentCol += 1
-    }
-    
-    fileprivate func reduceCurrentCol() {
-        // override in subclass
     }
     
     @_specialize(where R == 𝐙)
@@ -82,28 +76,10 @@ internal class RowEchelonEliminator<R: EuclideanRing>: MatrixEliminator<R> {
         return again
     }
     
-    fileprivate func addRow(at i0: Int, to: [(Int, R)]) {
+    private func addRow(at i0: Int, to: [(Int, R)]) {
         data.addRow(at: i0, to: to)
         append(to.map{ (i, r) in
             .AddRow(at: i0, to: i, mul: r)
         })
-    }
-}
-
-internal class ReducedRowEchelonEliminator<R: EuclideanRing>: RowEchelonEliminator<R> {
-    override var form: MatrixEliminationForm {
-        .RowHermite
-    }
-    
-    override func reduceCurrentCol() {
-        let a0 = data.row(currentRow).head!.element.value
-        let targets = data
-            .colEntries(in: currentCol, aboveRow: currentRow)
-            .compactMap { (i, a) -> (Int, R)? in
-                let q = a / a0
-                return !q.isZero ? (i, -q) : nil
-            }
-        
-        addRow(at: currentRow, to: targets)
     }
 }

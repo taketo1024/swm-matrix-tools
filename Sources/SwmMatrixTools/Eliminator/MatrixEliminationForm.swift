@@ -11,8 +11,6 @@ public enum MatrixEliminationForm {
     case none
     case RowEchelon
     case ColEchelon
-    case RowHermite
-    case ColHermite
     case Diagonal
     case Smith
     
@@ -24,10 +22,6 @@ public enum MatrixEliminationForm {
             return .ColEchelon
         case .ColEchelon:
             return .RowEchelon
-        case .RowHermite:
-            return .ColHermite
-        case .ColHermite:
-            return .RowHermite
         }
     }
 }
