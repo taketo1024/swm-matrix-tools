@@ -7,7 +7,7 @@
 
 import SwmCore
 
-internal final class MatrixEliminationData<R: Ring> {
+internal struct MatrixEliminationData<R: Ring> {
     private(set) var size: MatrixSize
     private(set) var rows: [Row]
     private(set) var rowWeights: [Double]
@@ -21,15 +21,15 @@ internal final class MatrixEliminationData<R: Ring> {
         self.setup(size: size, entries: entries, transpose: transpose)
     }
     
-    convenience init<Impl: MatrixImpl>(_ A: Impl, transpose: Bool = false) where Impl.BaseRing == R {
+    init<Impl: MatrixImpl>(_ A: Impl, transpose: Bool = false) where Impl.BaseRing == R {
         self.init(size: A.size, entries: A.nonZeroEntries, transpose: transpose)
     }
     
-    convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>, transpose: Bool = false) where Impl.BaseRing == R {
+    init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>, transpose: Bool = false) where Impl.BaseRing == R {
         self.init(A.impl, transpose: transpose)
     }
     
-    private func setup<S>(size: MatrixSize, entries: S, transpose: Bool)
+    private mutating func setup<S>(size: MatrixSize, entries: S, transpose: Bool)
     where S: Sequence, S.Element == MatrixEntry<R> {
         if transpose {
             // TODO generate tranposed rows directly
@@ -44,7 +44,7 @@ internal final class MatrixEliminationData<R: Ring> {
         self.size = size
         self.rows = generateRows(entries)
         self.rowWeights = rows.map { row in
-            row.sum{ weight(of: $0.value) }
+            row.sum{ $0.value.computationalWeight }
         }
         self.tracker = RowHeadTracker(headEntries)
     }
@@ -60,6 +60,10 @@ internal final class MatrixEliminationData<R: Ring> {
         }
     }
     
+    static func empty(size: MatrixSize) -> Self {
+        .init(size: size, entries: [], transpose: false)
+    }
+    
     @inlinable
     var countNonZeroRows: Int {
         rows.count{ !$0.isEmpty }
@@ -68,11 +72,6 @@ internal final class MatrixEliminationData<R: Ring> {
     @inlinable
     func row(_ i: Int) -> Row {
         rows[i]
-    }
-    
-    @inlinable
-    func weight(of a: R) -> Double {
-        a.computationalWeight
     }
     
     @inlinable
@@ -101,7 +100,7 @@ internal final class MatrixEliminationData<R: Ring> {
             .map{ i in (i, row(i).head!.value) }
     }
     
-    func transpose() {
+    mutating func transpose() {
         setup(size: size, entries: allEntries, transpose: true)
     }
     
@@ -126,7 +125,7 @@ internal final class MatrixEliminationData<R: Ring> {
     }
     
     @discardableResult
-    func apply(_ s: RowElementaryOperation<R>) -> Self {
+    mutating func apply(_ s: RowElementaryOperation<R>) -> Self {
         switch s {
         case let .AddRow(i, j, r):
             addRow(at: i, to: j, multipliedBy: r)
@@ -139,7 +138,7 @@ internal final class MatrixEliminationData<R: Ring> {
     }
 
     @discardableResult
-    func applyAll<S>(_ seq: S) -> Self
+    mutating func applyAll<S>(_ seq: S) -> Self
     where S: Sequence, S.Element == RowElementaryOperation<R> {
         for s in seq {
             apply(s)
@@ -148,22 +147,23 @@ internal final class MatrixEliminationData<R: Ring> {
     }
 
     @discardableResult
-    func addRow(at i1: Int, to i2: Int, multipliedBy r: R) -> Self {
-        if row(i1).isEmpty {
+    mutating func addRow(at i1: Int, to i2: Int, multipliedBy r: R) -> Self {
+        let from = row(i1)
+        if from.isEmpty {
             return self
         }
         
-        let j2 = row(i2).head?.col
-        let w = addRow(row(i1), into: &rows[i2], multipliedBy: r)
+        let oldCol = row(i2).head?.col
+        let w = Self.addRow(from, into: &rows[i2], multipliedBy: r)
         
         rowWeights[i2] += w
-        tracker.headMoved(inRow: i2, fromCol: j2, toCol: row(i2).head?.col)
+        tracker.headMoved(inRow: i2, fromCol: oldCol, toCol: row(i2).head?.col)
         
         return self
     }
     
     @discardableResult
-    func addRow(at i1: Int, to: [(row: Int, multipliedBy: R)]) -> Self {
+    mutating func addRow(at i1: Int, to: [(row: Int, multipliedBy: R)]) -> Self {
         let from = row(i1)
         if from.isEmpty {
             return self
@@ -177,7 +177,7 @@ internal final class MatrixEliminationData<R: Ring> {
         var weights: [Double] = []
         rows.withUnsafeMutableBufferPointer { buff in
             weights = to.parallelMap { (i, r) in
-                addRow(from, into: &buff[i], multipliedBy: r)
+                Self.addRow(from, into: &buff[i], multipliedBy: r)
             }
         }
         
@@ -197,7 +197,7 @@ internal final class MatrixEliminationData<R: Ring> {
     @_specialize(where R == 𝐐)
     @_specialize(where R == 𝐅₂)
     
-    private func addRow(_ from: Row, into to: inout Row, multipliedBy r: R) -> Double {
+    private static func addRow(_ from: Row, into to: inout Row, multipliedBy r: R) -> Double {
         if from.isEmpty {
             return 0
         }
@@ -256,7 +256,7 @@ internal final class MatrixEliminationData<R: Ring> {
                         toPtr.value = b
                     }
                     
-                    w += weight(of: b) - weight(of: a2)
+                    w += b.computationalWeight - a2.computationalWeight
                     
                 } else {
                     //                 j2  j1
@@ -269,7 +269,7 @@ internal final class MatrixEliminationData<R: Ring> {
                     toPrevPtr = toPtr
                     toPtr.proceed()
                     
-                    w += weight(of: b)
+                    w += b.computationalWeight
                 }
             }
         }
@@ -281,12 +281,12 @@ internal final class MatrixEliminationData<R: Ring> {
         return w
     }
     
-    @discardableResult
     @_specialize(where R == 𝐙)
     @_specialize(where R == 𝐐)
     @_specialize(where R == 𝐅₂)
     
-    func multiplyRow(at i: Int, by r: R) -> Self {
+    @discardableResult
+    mutating func multiplyRow(at i: Int, by r: R) -> Self {
         rows[i].mapValues { a in
             r * a
         }
@@ -294,7 +294,7 @@ internal final class MatrixEliminationData<R: Ring> {
     }
     
     @discardableResult
-    func swapRows(_ i1: Int, _ i2: Int) -> Self {
+    mutating func swapRows(_ i1: Int, _ i2: Int) -> Self {
         let j1 = row(i1).head?.col
         let j2 = row(i2).head?.col
         
@@ -306,7 +306,7 @@ internal final class MatrixEliminationData<R: Ring> {
     }
     
     @inlinable
-    func modifyRow(_ i: Int, _ modifier: (inout Row.NodePointer) -> Void) {
+    mutating func modifyRow(_ i: Int, _ modifier: (inout Row.NodePointer) -> Void) {
         rows[i].modify(modifier)
     }
     

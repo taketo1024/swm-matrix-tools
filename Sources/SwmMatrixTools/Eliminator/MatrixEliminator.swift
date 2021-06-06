@@ -9,7 +9,7 @@
 import SwmCore
 
 public class MatrixEliminator<R: Ring> {
-    internal let data: MatrixEliminationData<R>
+    internal var data: MatrixEliminationData<R>
     internal var rowOps: [RowElementaryOperation<R>]
     internal var colOps: [ColElementaryOperation<R>]
     
@@ -43,7 +43,7 @@ public class MatrixEliminator<R: Ring> {
         
         finalize()
         
-        log("Done:  \(self), \(rowOps.count + colOps.count) steps")
+        log("Done: \(self), \(rowOps.count + colOps.count) steps")
         
         if debug {
             printCurrentMatrix()
@@ -68,6 +68,13 @@ public class MatrixEliminator<R: Ring> {
 
     final func subrun(_ type: MatrixEliminator<R>.Type, transpose: Bool = false) {
         let e = type.init(data: data)
+        e.debug = debug
+        
+        // replace with dummy data to prevent COW.
+        data = .empty(size: data.size)
+        
+        log("Subrun: \(type), tranposed: \(transpose)")
+        
         if transpose {
             e.transpose()
         }
@@ -78,6 +85,7 @@ public class MatrixEliminator<R: Ring> {
             e.transpose()
         }
         
+        data = e.data
         rowOps += e.rowOps
         colOps += e.colOps
     }

@@ -148,7 +148,7 @@ public final class MatrixPivotFinder<R: Ring> {
                 }
             }
             
-            if let c = candidates.min(by: { data.weight(of: $0.value) }) {
+            if let c = candidates.min(by: { $0.value.computationalWeight }) {
                 setPivot(i, c.col)
                 occupiedCols.formUnion(currentCols)
             }
@@ -233,7 +233,7 @@ public final class MatrixPivotFinder<R: Ring> {
             }
         }
         
-        if let j = candidates.min(by: { j in data.weight(of: values[j]!) }) {
+        if let j = candidates.min(by: { j in values[j]!.computationalWeight }) {
             return (i, j)
         } else {
             return nil

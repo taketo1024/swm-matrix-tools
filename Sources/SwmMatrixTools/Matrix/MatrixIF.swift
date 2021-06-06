@@ -36,7 +36,9 @@ extension MatrixIF {
     
     internal func appliedRowOperations<S>(_ ops: S) -> Self
     where S: Sequence, S.Element == RowElementaryOperation<BaseRing> {
-        MatrixEliminationData(self).applyAll(ops).resultAs(Self.self)
+        var data = MatrixEliminationData(self)
+        data.applyAll(ops)
+        return data.resultAs(Self.self)
     }
     
     internal func appliedColOperations<S>(_ ops: S) -> Self
