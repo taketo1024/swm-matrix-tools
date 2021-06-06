@@ -23,14 +23,18 @@ class MatrixEliminationTests: XCTestCase {
         let A: M1 = [-2]
         let B: M1 = [2]
         let E = A.eliminate()
+        
         XCTAssertEqual(E.result, B)
+        XCTAssertEqual(E.left * A * E.right, E.result)
     }
     
     func testNormalize_Q() {
         let A: M1 = [-3./1]
         let B: M1 = [1./1]
         let E = A.eliminate()
+        
         XCTAssertEqual(E.result, B)
+        XCTAssertEqual(E.left * A * E.right, E.result)
     }
 
     func testFullRank() {
@@ -38,6 +42,7 @@ class MatrixEliminationTests: XCTestCase {
         let E = A.eliminate(form: .Smith)
         
         XCTAssertEqual(E.rank, 5)
+        XCTAssertEqual(E.left * A * E.right, E.result)
     }
     
     func testRank4() {
@@ -45,6 +50,7 @@ class MatrixEliminationTests: XCTestCase {
         let E = A.eliminate(form: .Smith)
         
         XCTAssertEqual(E.rank, 4)
+        XCTAssertEqual(E.left * A * E.right, E.result)
     }
     
     func testFullRank_HNF() {
@@ -53,6 +59,7 @@ class MatrixEliminationTests: XCTestCase {
         
         XCTAssertEqual(E.rank, 5)
         XCTAssertTrue(E.result.isUpperTriangular)
+        XCTAssertEqual(E.left * A * E.right, E.result)
     }
     
     func testRank4_HNF() {
@@ -60,6 +67,8 @@ class MatrixEliminationTests: XCTestCase {
         let E = A.eliminate(form: .RowEchelon)
         
         XCTAssertEqual(E.rank, 4)
+        XCTAssertTrue(E.result.isUpperTriangular)
+        XCTAssertEqual(E.left * A * E.right, E.result)
     }
     
     func testRank4_HNF_col() {
@@ -67,6 +76,8 @@ class MatrixEliminationTests: XCTestCase {
         let E = A.eliminate(form: .ColEchelon)
         
         XCTAssertEqual(E.rank, 4)
+        XCTAssertTrue(E.result.isLowerTriangular)
+        XCTAssertEqual(E.left * A * E.right, E.result)
     }
     
     func testLeftAndLeftInverse() {

@@ -8,8 +8,6 @@
 import SwmCore
 
 internal final class MatrixEliminationData<R: Ring> {
-    typealias Row = LinkedList<RowEntry<R>>
-    
     private(set) var size: MatrixSize
     private(set) var rows: [Row]
     private(set) var rowWeights: [Double]
@@ -90,7 +88,7 @@ internal final class MatrixEliminationData<R: Ring> {
     
     var headEntries: [MatrixEntry<R>] {
         rows.enumerated().compactMap { (i, row) in
-            (row.head?.element).flatMap{ (j, a) in
+            row.head.flatMap{ (j, a) in
                 (i, j, a)
             }
         }
@@ -100,7 +98,7 @@ internal final class MatrixEliminationData<R: Ring> {
     func colEntries(withHeadInCol j: Int) -> [ColEntry<R>] {
         tracker
             .rows(withHeadInCol: j)
-            .map{ i in (i, row(i).head!.element.value) }
+            .map{ i in (i, row(i).head!.value) }
     }
     
     func transpose() {
@@ -155,11 +153,11 @@ internal final class MatrixEliminationData<R: Ring> {
             return self
         }
         
-        let j2 = row(i2).head?.element.col
-        let w = addRow(row(i1), into: row(i2), multipliedBy: r)
+        let j2 = row(i2).head?.col
+        let w = addRow(row(i1), into: &rows[i2], multipliedBy: r)
         
         rowWeights[i2] += w
-        tracker.headMoved(inRow: i2, fromCol: j2, toCol: row(i2).head?.element.col)
+        tracker.headMoved(inRow: i2, fromCol: j2, toCol: row(i2).head?.col)
         
         return self
     }
@@ -171,21 +169,24 @@ internal final class MatrixEliminationData<R: Ring> {
             return self
         }
         
-        let rows = to.map{ $0.row }
-        let oldCols = rows.map{ i in
-            row(i).head?.element.col
+        let targetRows = to.map{ $0.row }
+        let oldCols = targetRows.map{ i in
+            row(i).head?.col
         }
         
-        let weights = to.parallelMap { (i, r) in
-            addRow(from, into: row(i), multipliedBy: r)
+        var weights: [Double] = []
+        rows.withUnsafeMutableBufferPointer { buff in
+            weights = to.parallelMap { (i, r) in
+                addRow(from, into: &buff[i], multipliedBy: r)
+            }
         }
         
-        for (i, w) in zip(rows, weights) {
+        for (i, w) in zip(targetRows, weights) {
             rowWeights[i] += w
         }
         
-        for (i, j) in zip(rows, oldCols) {
-            tracker.headMoved(inRow: i, fromCol: j, toCol: row(i).head?.element.col)
+        for (i, j) in zip(targetRows, oldCols) {
+            tracker.headMoved(inRow: i, fromCol: j, toCol: row(i).head?.col)
         }
         
         return self
@@ -196,15 +197,15 @@ internal final class MatrixEliminationData<R: Ring> {
     @_specialize(where R == 𝐐)
     @_specialize(where R == 𝐅₂)
     
-    private func addRow(_ from: Row, into to: Row, multipliedBy r: R) -> Double {
+    private func addRow(_ from: Row, into to: inout Row, multipliedBy r: R) -> Double {
         if from.isEmpty {
             return 0
         }
 
         var w = 0.0
         
-        let fromHeadCol = from.head!.element.col
-        if to.isEmpty || fromHeadCol < to.head!.element.col {
+        let fromHeadCol = from.head!.col
+        if to.isEmpty || fromHeadCol < to.head!.col {
             
             // from: ●-->○-->○----->○-------->
             //   to:            ●------->○--->
@@ -218,57 +219,62 @@ internal final class MatrixEliminationData<R: Ring> {
         }
         
         var fromItr = from.makeIterator()
-        var toPtr = to.head!
-        var toPrevPtr = toPtr
         
-        while let (j1, a1) = fromItr.next() {
-            // At this point, it is assured that `from.value.col >= to.value.col`.
-            // Proceed `to` so that it comes closed to `from`.
+        to.modify { toPtr in
+            var toPrevPtr = toPtr
             
-            // from: ------------->●--->○-------->
-            //   to: -->○----->●------------>○--->
-            //
-            //   ↓
-            //
-            // from: ------------->●--->○-------->
-            //   to: -->○----->●------------>○--->
-
-            while let next = toPtr.next, next.element.col <= j1 {
-                (toPrevPtr, toPtr) = (toPtr, next)
-            }
-            
-            let (j2, a2) = toPtr.element
-            
-            if j1 == j2 {
-                //                     j1 = j2
-                // from: ------------->●--->○-------->
-                //   to: -->○--------->●-------->○--->
-
-                let b = a2 + r * a1
+            while let (j1, a1) = fromItr.next() {
+                // At this point, it is assured that `from.value.col >= to.value.col`.
+                // Proceed `to` so that it comes closed to `from`.
                 
-                if b.isZero && toPtr != toPrevPtr {
-                    toPtr = toPrevPtr
-                    toPtr.dropNext()
-                } else {
-                    toPtr.element.value = b
-                }
-                
-                w += weight(of: b) - weight(of: a2)
-                
-            } else {
-                //                 j2  j1
                 // from: ------------->●--->○-------->
                 //   to: -->○----->●------------>○--->
-
-                let b = r * a1
-                toPtr.insertNext( RowEntry(j1, b) )
-                (toPrevPtr, toPtr) = (toPtr, toPtr.next!)
+                //
+                //   ↓
+                //
+                // from: ------------->●--->○-------->
+                //   to: -->○----->●------------>○--->
                 
-                w += weight(of: b)
+                while toPtr.hasNext && toPtr.next.col <= j1 {
+                    toPrevPtr = toPtr
+                    toPtr.proceed()
+                }
+                
+                let (j2, a2) = (toPtr.col, toPtr.value)
+                
+                if j1 == j2 {
+                    //                     j1 = j2
+                    // from: ------------->●--->○-------->
+                    //   to: -->○--------->●-------->○--->
+                    
+                    let b = a2 + r * a1
+                    
+                    if b.isZero && toPtr != toPrevPtr {
+                        toPrevPtr.dropNext()
+                        toPtr = toPrevPtr
+                    } else {
+                        toPtr.value = b
+                    }
+                    
+                    w += weight(of: b) - weight(of: a2)
+                    
+                } else {
+                    //                 j2  j1
+                    // from: ------------->●--->○-------->
+                    //   to: -->○----->●------------>○--->
+                    
+                    let b = r * a1
+                    toPtr.insertNext( (j1, b) )
+                    
+                    toPrevPtr = toPtr
+                    toPtr.proceed()
+                    
+                    w += weight(of: b)
+                }
             }
         }
         
-        if to.head!.element.value.isZero {
+        if to.head!.value.isZero {
             to.dropHead()
         }
         
@@ -281,22 +287,218 @@ internal final class MatrixEliminationData<R: Ring> {
     @_specialize(where R == 𝐅₂)
     
     func multiplyRow(at i: Int, by r: R) -> Self {
-        row(i).modifyEach { e in
-            e.value = r * e.value
+        rows[i].mapValues { a in
+            r * a
         }
         return self
     }
     
     @discardableResult
     func swapRows(_ i1: Int, _ i2: Int) -> Self {
-        let j1 = row(i1).head?.element.col
-        let j2 = row(i2).head?.element.col
+        let j1 = row(i1).head?.col
+        let j2 = row(i2).head?.col
         
         rows.swapAt(i1, i2)
         rowWeights.swapAt(i1, i2)
         tracker.swapRows( (i1, j1), (i2, j2) )
         
         return self
+    }
+    
+    @inlinable
+    func modifyRow(_ i: Int, _ modifier: (inout Row.NodePointer) -> Void) {
+        rows[i].modify(modifier)
+    }
+    
+    struct Row: Sequence {
+        typealias Element = RowEntry<R>
+        
+        private var headIndex: Int
+        private var values: [R]
+        private var cols: [Int]
+        private var nexts: [Int]
+        private var free: Set<Int>
+        
+        init(_ seq: [RowEntry<R>]) {
+            self.headIndex = -1
+            self.values = []
+            self.cols = []
+            self.nexts = []
+            self.free = []
+            
+            let count = seq.count
+
+            values.reserveCapacity(count)
+            cols.reserveCapacity(count)
+            nexts.reserveCapacity(count)
+            free.reserveCapacity(count)
+            
+            for (j, a) in seq {
+                values.append(a)
+                cols.append(j)
+            }
+            
+            if count > 0 {
+                headIndex = 0
+                nexts.append(contentsOf: 1 ..< count)
+                nexts.append(-1)
+            }
+        }
+        
+        @inlinable
+        var isEmpty: Bool {
+            headIndex == -1
+        }
+        
+        @inlinable
+        var isSingle: Bool {
+            headIndex != -1 && nexts[headIndex] == -1
+        }
+        
+        @inlinable
+        var head: RowEntry<R>? {
+            isEmpty ? nil : (cols[headIndex], values[headIndex])
+        }
+        
+        mutating func insertHead(_ element: RowEntry<R>) {
+            let old = headIndex // possibly -1
+            headIndex = insert(element)
+            nexts[headIndex] = old
+        }
+        
+        mutating func insert(_ element: RowEntry<R>, after: Int) {
+            let next = insert(element)
+            nexts[next] = nexts[after]
+            nexts[after] = next
+        }
+
+        mutating func dropHead() {
+            assert(!isEmpty)
+            let next = nexts[headIndex] // possibly -1
+            remove(headIndex)
+            headIndex = next
+        }
+        
+        mutating func dropNext(_ index: Int) {
+            assert(nexts[index] != -1)
+            let next = nexts[index]
+            nexts[index] = nexts[next]
+            remove(next)
+        }
+
+        mutating func mapValues(_ map: (R) -> R) {
+            for i in 0 ..< values.count where !free.contains(i) {
+                values[i] = map(values[i])
+            }
+        }
+        
+        private mutating func insert(_ element: Element) -> Int {
+            let index: Int
+            if let freed = free.popFirst() {
+                index = freed
+                (cols[index], values[index]) = element
+                nexts[index] = -1
+            } else {
+                index = values.count
+                values.append(element.value)
+                cols.append(element.col)
+                nexts.append(-1)
+            }
+            return index
+        }
+        
+        private mutating func remove(_ index: Int) {
+            free.insert(index)
+        }
+        
+        @inlinable
+        mutating func modify(_ modifier: (inout NodePointer) -> Void) {
+            var ptr = NodePointer(&self, headIndex)
+            modifier(&ptr)
+        }
+        
+        struct NodePointer: Equatable {
+            let row: UnsafeMutablePointer<Row>
+            var index: Int
+            
+            @inlinable
+            init(_ row: UnsafeMutablePointer<Row>, _ index: Int) {
+                assert(index != -1)
+                self.row = row
+                self.index = index
+            }
+            
+            @inlinable
+            var value: R {
+                get {
+                    row.pointee.values[index]
+                } set  {
+                    row.pointee.values[index] = newValue
+                }
+            }
+            
+            @inlinable
+            var col: Int {
+                get {
+                    row.pointee.cols[index]
+                } set {
+                    row.pointee.cols[index] = newValue
+                }
+            }
+            
+            @inlinable
+            var hasNext: Bool {
+                row.pointee.nexts[index] != -1
+            }
+            
+            @inlinable
+            var next: NodePointer {
+                NodePointer(row, row.pointee.nexts[index])
+            }
+            
+            @inlinable
+            func insertNext(_ e: Element) {
+                row.pointee.insert(e, after: index)
+            }
+            
+            @inlinable
+            func dropNext() {
+                row.pointee.dropNext(index)
+            }
+            
+            @inlinable
+            mutating func proceed() {
+                assert(hasNext)
+                index = row.pointee.nexts[index]
+            }
+            
+            @inlinable
+            static func == (p: Self, q: Self) -> Bool {
+                p.index == q.index
+            }
+        }
+        
+        func makeIterator() -> ElementIterator {
+            ElementIterator(self, headIndex)
+        }
+
+        struct ElementIterator: IteratorProtocol {
+            private var row: Row
+            private var index: Int
+            
+            fileprivate init(_ row: Row, _ index: Int) {
+                self.row = row
+                self.index = index
+            }
+
+            mutating func next() -> Element? {
+                if index < 0 {
+                    return nil
+                }
+                defer{ index = row.nexts[index]}
+                return (row.cols[index], row.values[index])
+            }
+        }
     }
     
     private final class RowHeadTracker {
