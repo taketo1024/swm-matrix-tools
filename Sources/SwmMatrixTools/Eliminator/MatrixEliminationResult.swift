@@ -138,10 +138,10 @@ extension MatrixEliminationResult {
     
     public var imageMatrix: MatrixIF<Impl, n, anySize> {
         switch form {
-        case .Diagonal, .Smith, .ColHermite, .ColEchelon:
+        case .Diagonal, .Smith, .ColEchelon:
             return imageMatrix_colEchelon
             
-        case .RowHermite, .RowEchelon:
+        case .RowEchelon:
             fatalError("not supported yet.")
             
         default:
@@ -172,10 +172,10 @@ extension MatrixEliminationResult {
     
     public var kernelMatrix: MatrixIF<Impl, m, anySize>  {
         switch form {
-        case .Diagonal, .Smith, .ColHermite, .ColEchelon:
+        case .Diagonal, .Smith, .ColEchelon:
             return kernelMatrix_colEchelon
             
-        case .RowHermite, .RowEchelon:
+        case .RowEchelon:
             fatalError("not supported yet.")
             
         default:

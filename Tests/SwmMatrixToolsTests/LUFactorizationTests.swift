@@ -243,7 +243,6 @@ class LUFactorizationTests: XCTestCase {
         XCTAssertEqual(e.nullity, 2)
         
         let K = e.kernel
-        print(K.detailDescription)
         XCTAssertEqual(K.size.cols, 2)
         XCTAssertTrue((A * K).isZero)
     }
