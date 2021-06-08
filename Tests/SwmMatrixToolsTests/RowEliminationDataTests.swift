@@ -16,7 +16,7 @@ class RowEliminationDataTests: XCTestCase {
     
     func testEqual() {
         let a: M2 = [1,2,3,4]
-        var w = data(a)
+        let w = data(a)
         XCTAssertEqual(a, w.resultAs(M2.self))
     }
     
