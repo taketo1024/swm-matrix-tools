@@ -12,14 +12,14 @@ let package = Package(
     ],
     dependencies: [
         .package(
-//            url: "https://github.com/taketo1024/swm-core.git",
-//            from: "1.2.3"
-            path: "../swm-core/"
+            url: "https://github.com/taketo1024/swm-core.git",
+            from: "1.2.4"
+//            path: "../swm-core/"
         ),
         .package(
-//            url: "https://github.com/taketo1024/swm-eigen.git",
-//            from: "1.2.3"
-            path: "../swm-eigen/"
+            url: "https://github.com/taketo1024/swm-eigen.git",
+            from: "0.3.0"
+//            path: "../swm-eigen/"
         ),
     ],
     targets: [
@@ -32,7 +32,7 @@ let package = Package(
             swiftSettings: [
                 .define("USE_EIGEN")
             ]
-		),
+        ),
         .testTarget(
             name: "SwmMatrixToolsTests",
             dependencies: ["SwmMatrixTools"]
