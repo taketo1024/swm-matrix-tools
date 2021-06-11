@@ -18,10 +18,6 @@ public protocol LUFactorizable: MatrixImpl {
 }
 
 extension LUFactorizable {
-    public func LUfactorize() -> (P: Permutation<anySize>, Q: Permutation<anySize>, L: Self, U: Self) {
-        LUFactorizer.factorize(self)!
-    }
-    
     public static func solveLowerTrapezoidal(_ L: Self, _ b: Self) -> Self? {
         assert(L.size.rows >= L.size.cols)
         assert(L.size.rows == b.size.rows)
@@ -62,5 +58,13 @@ extension LUFactorizable {
             
             return x.stack(.zero(size: (m - r, k)))
         }
+    }
+}
+
+extension LUFactorizable where Self: SparseMatrixImpl {
+    public func LUfactorize() -> (P: Permutation<anySize>, Q: Permutation<anySize>, L: Self, U: Self) {
+        let f = SparseLUFactorizer(self)
+        f.run()
+        return f.result
     }
 }

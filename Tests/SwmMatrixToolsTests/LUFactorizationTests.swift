@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by Taketo Sano on 2021/06/01.
 //
@@ -86,83 +86,6 @@ class LUFactorizationTests: XCTestCase {
         XCTAssertEqual(U * x, b)
     }
     
-    func testFactorizerPartialLU() {
-        let A: M<_6, _9> = [
-            1, 0, 1, 0, 0, 1, 1, 0, 1,
-            0, 1, 1, 1, 0, 1, 0, 1, 0,
-            0, 0, 3, 1, 0, 0, 0, 1, 1,
-            0, 1, 1, 0, 1, 0, 0, 0, 0,
-            0, 4, 0, 1, 0, 0, 2, 0, 1,
-            1, 0, 1, 0, 1, 1, 0, 1, 1
-        ]
-        let ((P, Q, L, U), S) = LUFactorizer.partialLU(A.impl)
-        XCTAssertTrue(L.isLowerTriangular)
-        XCTAssertTrue(U.isUpperTriangular)
-        
-        let r = L.size.cols
-        XCTAssertEqual(
-            A.impl.permute(rowsBy: P, colsBy: Q),
-            (L * U) + (.zero(size: (r, r)) ⊕ S)
-        )
-    }
-    
-    func testFactorizerPartialLU2() {
-        let A: M<_5, _5> = [
-            1, 0, 1, 0, 2,
-            0, 0, 0, 3, 0,
-            0, 0, 2, 0, 3,
-            1, 0, 0, 1, 0,
-            0, 0, 1, 0, 1,
-        ]
-        let ((P, Q, L, U), S) = LUFactorizer.partialLU(A.impl)
-        XCTAssertTrue(L.isLowerTriangular)
-        XCTAssertTrue(U.isUpperTriangular)
-        
-        let r = L.size.cols
-        XCTAssertEqual(
-            A.impl.permute(rowsBy: P, colsBy: Q),
-            (L * U) + (.zero(size: (r, r)) ⊕ S)
-        )
-    }
-    
-    func testFactorizerFullLU() {
-        let A: M<_5, _5> = [
-            1, 0, 1, 0, 2,
-            0, 0, 0, 3, 0,
-            0, 0, 2, 0, 3,
-            1, 0, 0, 1, 0,
-            0, 0, 1, 0, 1,
-        ]
-        let _A = A.impl
-        guard let (P, Q, L, U) = LUFactorizer.fullLU(A.impl) else {
-            XCTFail()
-            return
-        }
-        
-        XCTAssertTrue(L.isLowerTriangular)
-        XCTAssertTrue(U.isUpperTriangular)
-        XCTAssertEqual(_A.permute(rowsBy: P, colsBy: Q), L * U)
-    }
-    
-    func testFactorizerFactorize() {
-        let A: M<_5, _5> = [
-            1, 0, 1, 0, 2,
-            0, 0, 0, 3, 0,
-            0, 0, 2, 0, 3,
-            1, 0, 0, 1, 0,
-            0, 0, 1, 0, 1,
-        ]
-        let _A = A.impl
-        guard let (P, Q, L, U) = LUFactorizer.factorize(A.impl) else {
-            XCTFail()
-            return
-        }
-        
-        XCTAssertTrue(L.isLowerTriangular)
-        XCTAssertTrue(U.isUpperTriangular)
-        XCTAssertEqual(_A.permute(rowsBy: P, colsBy: Q), L * U)
-    }
-    
     func testFactorize() {
         let A: M<_5, _5> = [
             1, 0, 1, 0, 2,
@@ -179,6 +102,18 @@ class LUFactorizationTests: XCTestCase {
         XCTAssertEqual(A.permute(rowsBy: P, colsBy: Q), L * U)
     }
 
+    func testFactorizeRandom() {
+        let n = 10
+        let grid = (0 ..< n * n).map{ _ in R(Int.random(in: 0 ..< 5)) }
+        let A: M<anySize, anySize> = .init(size: (n, n), grid: grid)
+        let e = A.LUfactorize()
+        let (P, Q, L, U) = e.PQLU
+        
+        XCTAssertTrue(L.isLowerTriangular)
+        XCTAssertTrue(U.isUpperTriangular)
+        XCTAssertEqual(A.permute(rowsBy: P, colsBy: Q), L * U)
+    }
+    
     func testSolve() {
         let A: M<_5, _5> = [
             1, 0, 1, 0, 2,

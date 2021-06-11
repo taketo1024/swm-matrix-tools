@@ -99,8 +99,6 @@ public final class MatrixPivotFinder {
         
         if pivots.isEmpty {
             log("No pivots found.")
-        } else if pivots.allSatisfy({ (j, i) in i == j }) {
-            log("No need for permutation.")
         } else {
             self.result = pivots
             

@@ -10,7 +10,7 @@ import SwmCore
 //  CSC (compressed sparse colums) format.
 //  https://en.wikipedia.org/wiki/Sparse_matrix#Compressed_sparse_row_(CSR,_CRS_or_Yale_format)
 
-public struct CSCMatrixImpl<R: Ring>: MatrixImpl {
+public struct CSCMatrixImpl<R: Ring>: SparseMatrixImpl {
     public typealias BaseRing = R
     
     public let size: (rows: Int, cols: Int)

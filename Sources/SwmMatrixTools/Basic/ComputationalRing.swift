@@ -6,6 +6,9 @@
 //
 
 import SwmCore
+#if USE_EIGEN
+import SwmEigen
+#endif
 
 public protocol ComputationalRing {
     associatedtype ComputationalMatrix: MatrixImpl where ComputationalMatrix.BaseRing == Self
@@ -53,10 +56,5 @@ extension Polynomial: ComputationalRing where BaseRing: Field {
 }
 
 #if USE_EIGEN
-import SwmEigen
-extension EigenSparseMatrixImpl: LUFactorizable where R: EigenSparseMatrixCompatible_LU {
-    public func LUfactorize() -> (P: Permutation<anySize>, Q: Permutation<anySize>, L: Self, U: Self) {
-        LUFactorizer.factorize(self)!
-    }
-}
+extension EigenSparseMatrixImpl: LUFactorizable where R: EigenSparseMatrixCompatible_LU {}
 #endif
