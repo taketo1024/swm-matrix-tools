@@ -128,14 +128,14 @@ public final class SparseLUFactorizer<M: SparseMatrixImpl & LUFactorizable> {
             return
         }
         
-        let e = LUEliminator(data: MatrixEliminationData(target))
+        let e = LUFactorizer(target)
         e.run()
         
-        guard e.isDone() else {
+        guard e.isDone else {
             fatalError()
         }
         
-        let (P, Q, L, U) = e.PQLU(Matrix.self)!
+        let (P, Q, L, U) = e.result!
         
         compose(P, Q, L, U)
         target = .zero(size: (L.size.rows - L.size.cols, U.size.cols - U.size.rows))
