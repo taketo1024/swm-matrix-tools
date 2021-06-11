@@ -87,23 +87,6 @@ public struct CSCMatrixImpl<R: Ring>: SparseMatrixImpl {
         AnySequence(NonZeroEntryIterator(self))
     }
     
-    // MEMO for performance, it is assumed that f maps to non-zero.
-    public func mapNonZeroEntries(_ f: (Int, Int, R) -> R) -> Self {
-        let newValues = (0 ..< size.cols).flatMap { j in
-            indexRange(j).map { idx -> R in
-                let i = rowIndices[idx]
-                let a = values[idx]
-                return f(i, j, a)
-            }
-        }
-        return .init(
-            size: size,
-            values: newValues,
-            rowIndices: rowIndices,
-            indexRanges: indexRanges
-        )
-    }
-    
     public func colVector(_ j: Int) -> CSCMatrixImpl<R> {
         let r = indexRange(j)
         return .init(

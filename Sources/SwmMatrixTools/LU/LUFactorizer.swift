@@ -1,96 +1,150 @@
 //
-//  LUFactorizer.swift
-//  SwiftyMath
+//  File.swift
+//  
 //
-//  Created by Taketo Sano on 2019/10/29.
+//  Created by Taketo Sano on 2021/06/02.
 //
 
 import SwmCore
 
-public final class LUFactorizer<M: MatrixImpl & LUFactorizable> {
-    public typealias Result = (P: Permutation<anySize>, Q: Permutation<anySize>, L: M, U: M)
+public final class LUFactorizer<M: MatrixImpl> {
+    public typealias R = M.BaseRing
+    private let eliminator: LUEliminator
     
-    public static func factorize(_ A: M) -> Result? {
-        let (res1, S) = partialLU(A) // TODO continue until S is dense enough
-        if S.isZero {
-            return res1
-        }
-        guard let res2 = fullLU(S) else {
-            return nil
-        }
-        return compose(res1, res2)
+    public init(_ A: M) {
+        self.eliminator = LUEliminator(data: MatrixEliminationData(A))
+    }
+
+    public convenience init<n, m>(_ A: MatrixIF<M, n, m>) {
+        self.init(A.impl)
     }
     
-    public static func partialLU(_ A: M) -> (result: Result, S: M) {
-        // If
-        //
-        //   PAQ = [L, B]
-        //         [C, D]
-        //
-        // with L: lower-triangular, then
-        //
-        //   PAQ = [L, 0] * [I, B']
-        //         [C, S]   [0, I ]
-        //
-        //       = [L] * [I, B'] + [0, 0]
-        //         [C]             [0, S] .
-        //
-        // where
-        //
-        //    B' = L^-1 B,
-        //    S  = D - C L^-1 B.
-        //
-
-        let (n, m) = A.size
-        let pf = MatrixPivotFinder(A, mode: .colBased)
-        pf.run()
-        
-        let (P, Q) = (pf.rowPermutation, pf.colPermutation)
-        let r = pf.pivots.count
-
-        let pAq = A.permute(rowsBy: pf.rowPermutation, colsBy: pf.colPermutation)
-        let L = pAq.submatrix(rowRange: 0 ..< r, colRange: 0 ..< r)
-        let B = pAq.submatrix(rowRange: 0 ..< r, colRange: r ..< m)
-        let C = pAq.submatrix(rowRange: r ..< n, colRange: 0 ..< r)
-        let D = pAq.submatrix(rowRange: r ..< n, colRange: r ..< m)
-        
-        let B1 = M.solveLowerTriangular(L, B)
-        let S = D - C * B1
-        
-        return (
-            result: (
-                P: P,
-                Q: Q,
-                L: L.stack(C),
-                U: M.identity(size: (r, r)).concat(B1)
-            ),
-            S: S
+    public func run() {
+        eliminator.run()
+    }
+    
+    public var isDone: Bool {
+        eliminator.isDone()
+    }
+    
+    // MARK: PQLU results
+    
+    public var result: (P: Permutation<anySize>, Q: Permutation<anySize>, L: M, U: M)? {
+        !eliminator.aborted ? (P, Q, L, U) : nil
+    }
+    
+    public var P: Permutation<anySize> {
+        let data = eliminator.data
+        let n = data.size.rows
+        var indices = Array(0 ..< n)
+        for case let .SwapRows(i, j) in eliminator.rowOps {
+            indices.swapAt(i, j)
+        }
+        return Permutation(length: n, indices: indices).inverse!
+    }
+    
+    public var Q: Permutation<anySize> {
+        let data = eliminator.data
+        let m = data.size.cols
+        let indices = data.headEntries.map { $0.col }
+        return Permutation(length: m, indices: indices, fillRemaining: true).inverse!
+    }
+    
+    public var L: M {
+        let data = eliminator.data
+        let n = data.size.rows
+        let r = data.countNonZeroRows
+        return .init(
+            size: (n, r),
+            entries: eliminator.tmpL.enumerated().flatMap{ (i, row) in
+                row.map { (j, a) in (i, j, a) }
+            }
         )
     }
     
-    public static func fullLU(_ A: M) -> Result? {
-        let e = LUEliminator(data: MatrixEliminationData(A))
-        e.run()
-        return e.PQLU(M.self)
+    public var U: M {
+        let data = eliminator.data
+        let m = data.size.cols
+        let r = data.countNonZeroRows
+        return data.resultAs(M.self).permuteCols(by: Q).submatrix(rowRange: 0 ..< r, colRange: 0 ..< m)
     }
     
-    private static func compose(_ res1: Result, _ res2: Result) -> Result {
-        let (P1, Q1, L1, U1) = res1
-        let r1 = L1.size.cols
-
-        let (P2s, Q2s, L2s, U2s) = res2
-        let r2 = L2s.size.cols
-        let P2 = P2s.shifted(r1)
-        let Q2 = Q2s.shifted(r1)
-
-        let L2 = M.zero(size: (r1, r2)).stack (L2s)
-        let U2 = M.zero(size: (r2, r1)).concat(U2s)
+    private class LUEliminator: MatrixEliminator<R> {
+        private var currentRow = 0
+        private var currentCol = 0
+        fileprivate var tmpL: [[RowEntry<R>]]
         
-        let P = P2 * P1
-        let Q = Q2 * Q1
-        let L = L1.permuteRows(by: P2).concat(L2)
-        let U = U1.permuteCols(by: Q2).stack (U2)
+        required init(data: MatrixEliminationData<R>) {
+            self.tmpL = Array(repeating: [RowEntry<R>].empty, count: data.size.rows)
+            super.init(data: data)
+        }
         
-        return (P, Q, L, U)
+        override var form: MatrixEliminationForm {
+            .RowEchelon
+        }
+        
+        override func isDone() -> Bool {
+            currentRow >= data.size.rows || currentCol >= data.size.cols
+        }
+        
+        override func iteration() {
+            
+            // find pivot point
+            let colEntries = data.colEntries(withHeadInCol: currentCol)
+            guard let pivot = findPivot(in: colEntries) else {
+                currentCol += 1
+                return
+            }
+            
+            if !pivot.value.isInvertible {
+                abort()
+                return
+            }
+            
+            if pivot.row != currentRow {
+                apply(.SwapRows(currentRow, pivot.row))
+                tmpL.swapAt(currentRow, pivot.row)
+                return
+            }
+            
+            log("Pivot: \((pivot.row, currentCol)), \(pivot.value)")
+            
+            eliminate(colEntries, byPivot: pivot)
+            
+            currentRow += 1
+            currentCol += 1
+        }
+        
+        private func findPivot(in candidates: [ColEntry<R>]) -> ColEntry<R>? {
+            candidates.min { (c1, c2) in
+                let (i1, i2) = (c1.row, c2.row)
+                let (d1, d2) = (c1.value.isInvertible ? 0 : 1, c2.value.isInvertible ? 0 : 1)
+                return d1 < d2 || (d1 == d2 && data.rowWeight(i1) < data.rowWeight(i2))
+            }
+        }
+        
+        private func eliminate(_ colEntries: [ColEntry<R>], byPivot pivot: ColEntry<R>) {
+            let i0 = pivot.row
+            let e = pivot.value.inverse!
+            
+            let targets = colEntries[1...]
+                .map { (i, a) -> (Int, R) in
+                    (i, -a * e)
+                }
+            
+            addRow(at: pivot.row, to: targets)
+            
+            tmpL[i0].append((i0, .identity))
+            for (i, a) in targets {
+                tmpL[i].append( (i0, -a) )
+            }
+        }
+        
+        private func addRow(at i: Int, to: [(Int, R)]) {
+            data.addRow(at: i, to: to)
+            append(to.map{ (i1, r) in
+                .AddRow(at: i, to: i1, mul: r)
+            })
+        }
     }
 }
