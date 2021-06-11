@@ -69,6 +69,7 @@ public final class SparseLUFactorizer<M: SparseMatrixImpl & LUFactorizable> {
         log("")
     }
     
+    @discardableResult
     public func partialLU() -> Int {
         // If
         //
