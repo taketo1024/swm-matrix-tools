@@ -10,7 +10,7 @@ import SwmCore
 //  CSC (compressed sparse colums) format.
 //  https://en.wikipedia.org/wiki/Sparse_matrix#Compressed_sparse_row_(CSR,_CRS_or_Yale_format)
 
-public struct CSCMatrixImpl<R: Ring>: SparseMatrixImpl {
+public struct CSCMatrixImpl<R: Ring>: MatrixImpl {
     public typealias BaseRing = R
     
     public let size: (rows: Int, cols: Int)
@@ -85,23 +85,6 @@ public struct CSCMatrixImpl<R: Ring>: SparseMatrixImpl {
     
     public var nonZeroEntries: AnySequence<MatrixEntry<R>> {
         AnySequence(NonZeroEntryIterator(self))
-    }
-    
-    // MEMO for performance, it is assumed that f maps to non-zero.
-    public func mapNonZeroEntries(_ f: (Int, Int, R) -> R) -> Self {
-        let newValues = (0 ..< size.cols).flatMap { j in
-            indexRange(j).map { idx -> R in
-                let i = rowIndices[idx]
-                let a = values[idx]
-                return f(i, j, a)
-            }
-        }
-        return .init(
-            size: size,
-            values: newValues,
-            rowIndices: rowIndices,
-            indexRanges: indexRanges
-        )
     }
     
     public func colVector(_ j: Int) -> CSCMatrixImpl<R> {
