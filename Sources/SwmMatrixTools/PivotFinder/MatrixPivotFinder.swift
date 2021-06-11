@@ -5,7 +5,18 @@
 //  Created by Taketo Sano on 2019/10/26.
 //
 
+//  Implementation based on:
+//
+//  "Parallel Sparse PLUQ Factorization modulo p", Charles Bouillaguet, Claire Delaplace, Marie-Emilie Voge.
+//  https://hal.inria.fr/hal-01646133/document
+//
+//  see also:
+//
+//  SpaSM (Sparse direct Solver Modulo p)
+//  https://github.com/cbouilla/spasm
+
 import SwmCore
+import Dispatch
 
 public enum PivotMode {
     case rowBased, colBased
@@ -94,6 +105,7 @@ public final class MatrixPivotFinder {
         
         findFLPivots()
         findFLColumnPivots()
+        findCycleFreePivots()
         
         let pivots = sortPivots()
         
@@ -149,7 +161,88 @@ public final class MatrixPivotFinder {
         
         log("FL-col-pivots: \(pivotTable.count - count)")
     }
-        
+    
+    private func findCycleFreePivots() {
+        let count = pivotTable.count
+        let atomic = DispatchQueue(label: "atomic", qos: .userInteractive)
+
+        let remainingRows = data.indices.exclude{ i in pivotRows.contains(i) }
+        remainingRows.parallelForEach { i in
+            while true {
+                let copy = atomic.sync { self.pivotTable }
+                guard let pivot = self.findCycleFreePivot(inRow: i, pivots: copy) else {
+                    break
+                }
+
+                let done = atomic.sync { () -> Bool in
+                    if copy.count != self.pivotTable.count {
+                        return false
+                    }
+                    self.setPivot(pivot.0, pivot.1)
+                    return true
+                }
+
+                if done {
+                    break
+                }
+            }
+        }
+
+        log("cycle-free-pivots: \(pivotTable.count - count)")
+    }
+
+    private func findCycleFreePivot(inRow i: Int, pivots: [Int : Int]) -> (Int, Int)? {
+        let row = data[i]
+
+        //       j1
+        //  i [  O     O     C  C     ]    O: queued, C: candidates
+        //       |     |     ^
+        //       V     |     | rmv
+        // i2 [  X     o     o     O  ]
+        //             |           |
+        //             V           |
+        // i3 [        X           |  ]
+        //                         |
+
+        // the following are col-indexed.
+        var candidates: Set<Int> = []
+        var queue: [Int] = []
+        var queued: Set<Int> = []
+
+        // initialize
+        for (j, a) in row {
+            if pivots.contains(key: j) {
+                queue.append(j)
+                queued.insert(j)
+            } else if a == 1 {
+                candidates.insert(j)
+            }
+        }
+
+        while !queue.isEmpty && !candidates.isEmpty {
+            let j1 = queue.removeFirst()
+            let i2 = pivots[j1]!
+
+            for (j2, _) in data[i2] {
+                if pivots.contains(key: j2) && !queued.contains(j2) {
+                    queue.append(j2)
+                    queued.insert(j2)
+                } else if candidates.contains(j2) {
+                    candidates.remove(j2)
+                    if candidates.isEmpty {
+                        break
+                    }
+                }
+            }
+        }
+
+        if let j = candidates.anyElement {
+            return (i, j)
+        } else {
+            return nil
+        }
+    }
+    
     private func sortPivots() -> [(Int, Int)] {
         let tree = PlainGraph(structure: Dictionary(keys: pivotTable.keys) { j1 -> [Int] in
             let i1 = pivotTable[j1]!

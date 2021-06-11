@@ -12,7 +12,7 @@ import SwmEigen
 
 public protocol ComputationalRing {
     associatedtype ComputationalMatrix: MatrixImpl where ComputationalMatrix.BaseRing == Self
-    associatedtype ComputationalSparseMatrix: MatrixImpl where ComputationalSparseMatrix.BaseRing == Self
+    associatedtype ComputationalSparseMatrix: SparseMatrixImpl where ComputationalSparseMatrix.BaseRing == Self
 }
 
 extension Int: ComputationalRing {

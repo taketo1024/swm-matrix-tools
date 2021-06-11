@@ -10,7 +10,7 @@ import SwmCore
 public final class SparseLUFactorizer<M: SparseMatrixImpl & LUFactorizable> {
     public typealias Matrix = M
     
-    public let densityThreshold = 1.0
+    public let densityThreshold = 0.3
     public private(set) var target: Matrix
     public private(set) var P: Permutation<anySize>
     public private(set) var Q: Permutation<anySize>
