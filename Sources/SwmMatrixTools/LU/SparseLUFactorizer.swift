@@ -129,14 +129,7 @@ public final class SparseLUFactorizer<M: SparseMatrixImpl & LUFactorizable> {
             return
         }
         
-        let e = LUFactorizer(target)
-        e.run()
-        
-        guard e.isDone else {
-            fatalError()
-        }
-        
-        let (P, Q, L, U) = e.result!
+        let (P, Q, L, U) = target.denseLUfactorize()
         
         compose(P, Q, L, U)
         target = .zero(size: (L.size.rows - L.size.cols, U.size.cols - U.size.rows))

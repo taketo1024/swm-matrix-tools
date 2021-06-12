@@ -7,7 +7,7 @@
 
 import SwmCore
 
-public final class LUFactorizer<M: MatrixImpl> {
+public final class LUFactorizer<M: LUFactorizable> {
     public typealias R = M.BaseRing
     private let eliminator: LUEliminator
     
@@ -29,8 +29,9 @@ public final class LUFactorizer<M: MatrixImpl> {
     
     // MARK: PQLU results
     
-    public var result: (P: Permutation<anySize>, Q: Permutation<anySize>, L: M, U: M)? {
-        !eliminator.aborted ? (P, Q, L, U) : nil
+    public var result: M.RawLUFactorizationResult {
+        assert(isDone)
+        return (P, Q, L, U)
     }
     
     public var P: Permutation<anySize> {

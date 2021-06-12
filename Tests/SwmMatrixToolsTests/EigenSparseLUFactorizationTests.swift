@@ -7,12 +7,13 @@
 
 import XCTest
 import SwmCore
+import SwmEigen
 @testable import SwmMatrixTools
 
-class LUFactorizationTests: XCTestCase {
+class EigenSparseLUFactorizationTests: XCTestCase {
     
     typealias R = RationalNumber
-    typealias M<n: SizeType, m: SizeType> = MatrixIF<DefaultSparseMatrixImpl<R>, n, m>
+    typealias M<n: SizeType, m: SizeType> = MatrixIF<EigenSparseMatrixImpl<R>, n, m>
 
     func testSolveLowerTriangular() {
         let L: M<_4, _4> = [

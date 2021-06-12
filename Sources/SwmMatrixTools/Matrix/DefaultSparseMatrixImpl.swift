@@ -10,7 +10,10 @@ import SwmCore
 //  CSC (compressed sparse colums) format.
 //  https://en.wikipedia.org/wiki/Sparse_matrix#Compressed_sparse_row_(CSR,_CRS_or_Yale_format)
 
-public struct CSCMatrixImpl<R: Ring>: SparseMatrixImpl {
+@available(*, deprecated, message: "use DefaultSparseMatrixImpl")
+public typealias CSCMatrixImpl<R: Ring> = DefaultSparseMatrixImpl<R>
+
+public struct DefaultSparseMatrixImpl<R: Ring>: SparseMatrixImpl {
     public typealias BaseRing = R
     
     public let size: (rows: Int, cols: Int)
@@ -87,7 +90,7 @@ public struct CSCMatrixImpl<R: Ring>: SparseMatrixImpl {
         AnySequence(NonZeroEntryIterator(self))
     }
     
-    public func colVector(_ j: Int) -> CSCMatrixImpl<R> {
+    public func colVector(_ j: Int) -> Self {
         let r = indexRange(j)
         return .init(
             size: (size.rows, 1),
@@ -282,12 +285,12 @@ public struct CSCMatrixImpl<R: Ring>: SparseMatrixImpl {
     public struct NonZeroEntryIterator: Sequence, IteratorProtocol {
         public typealias Element = MatrixEntry<R>
         
-        private let data: CSCMatrixImpl<R>
+        private let data: DefaultSparseMatrixImpl<R>
         private var idx: Int
         private var col: Int
         private let maxCol: Int
         
-        public init(_ data: CSCMatrixImpl<R>) {
+        public init(_ data: DefaultSparseMatrixImpl<R>) {
             let m = data.size.cols
             self.data = data
             self.idx = 0
@@ -312,94 +315,4 @@ public struct CSCMatrixImpl<R: Ring>: SparseMatrixImpl {
     }
 }
 
-extension CSCMatrixImpl: LUFactorizable where BaseRing: Field {
-    public static func solveLowerTriangular(_ L: Self, _ B: Self) -> Self {
-        assert(L.isSquare)
-        assert(L.isLowerTriangular)
-        assert(L.hasInvertibleDiagonal)
-        assert(L.size.rows == B.size.rows)
-        
-        let (n, k) = B.size
-        let cols = Array(0 ..< k).parallelMap { j -> [ColEntry<R>] in
-            let b = B.colVector(j)
-            return self.solveLowerTriangularSingle(L, b)
-        }
-        
-        return .init(size: (n, k), compressing: cols, sorted: true)
-    }
-    
-    @_specialize(where R == 𝐐)
-    @_specialize(where R == 𝐅₂)
-    
-    private static func solveLowerTriangularSingle(_ L: Self, _ b: Self) -> [ColEntry<R>] {
-        let n = L.size.rows
-        var w = b.serialize()
-        
-        var x: [ColEntry<R>] = []
-        x.reserveCapacity(n)
-        
-        for i in 0 ..< n {
-            let wi = w[i]
-            if wi.isZero {
-                continue
-            }
-            
-            let l = L.colVector(i)
-            let li = l.firstEntry()!.value
-            let xi = wi * li.inverse!
-            
-            x.append((i, xi))
-            
-            for (j, _, lj) in l.nonZeroEntries {
-                w[j] = w[j] - xi * lj
-            }
-        }
-        
-        return x
-    }
-
-    public static func solveUpperTriangular(_ U: Self, _ B: Self) -> Self {
-        assert(U.isSquare)
-        assert(U.isUpperTriangular)
-        assert(U.hasInvertibleDiagonal)
-        assert(U.size.rows == B.size.rows)
-
-        let (n, k) = B.size
-        let cols = Array(0 ..< k).parallelMap { j -> [ColEntry<R>] in
-            let b = B.colVector(j)
-            return self.solveUpperTriangularSingle(U, b)
-        }
-        
-        return .init(size: (n, k), compressing: cols, sorted: true)
-    }
-    
-    @_specialize(where R == 𝐐)
-    @_specialize(where R == 𝐅₂)
-    
-    private static func solveUpperTriangularSingle(_ U: Self, _ b: Self) -> [ColEntry<R>] {
-        let n = U.size.rows
-        var w = b.serialize()
-        
-        var x: [ColEntry<R>] = []
-        x.reserveCapacity(n)
-        
-        for i in (0 ..< n).reversed() {
-            let wi = w[i]
-            if wi.isZero {
-                continue
-            }
-
-            let u = U.colVector(i)
-            let ui = u.lastEntry()!.value
-            let xi = wi * ui.inverse!
-
-            x.append((i, xi))
-            
-            for (j, _, uj) in u.nonZeroEntries {
-                w[j] = w[j] - xi * uj
-            }
-        }
-        
-        return x.reversed()
-    }
-}
+extension DefaultSparseMatrixImpl: LUFactorizable, SparseLUFactorizable where BaseRing: Field {}

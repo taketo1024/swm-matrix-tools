@@ -6,9 +6,12 @@
 //
 
 import SwmCore
+
 #if USE_EIGEN
 import SwmEigen
 #endif
+
+// TODO implement `DefaultDenseMatrixImpl`.
 
 public protocol ComputationalRing {
     associatedtype ComputationalMatrix: MatrixImpl where ComputationalMatrix.BaseRing == Self
@@ -21,7 +24,7 @@ extension Int: ComputationalRing {
     public typealias ComputationalSparseMatrix = EigenSparseMatrixImpl<Self>
     #else
     public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
-    public typealias ComputationalSparseMatrix = CSCMatrixImpl<Self>
+    public typealias ComputationalSparseMatrix = DefaultSparseMatrixImpl<Self>
     #endif
 }
 
@@ -31,13 +34,13 @@ extension RationalNumber: ComputationalRing {
     public typealias ComputationalSparseMatrix = EigenSparseMatrixImpl<Self>
     #else
     public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
-    public typealias ComputationalSparseMatrix = CSCMatrixImpl<Self>
+    public typealias ComputationalSparseMatrix = DefaultSparseMatrixImpl<Self>
     #endif
 }
 
 extension RealNumber: ComputationalRing {
     public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
-    public typealias ComputationalSparseMatrix = CSCMatrixImpl<Self>
+    public typealias ComputationalSparseMatrix = DefaultSparseMatrixImpl<Self>
 }
 
 extension 𝐅₂: ComputationalRing {
@@ -46,15 +49,11 @@ extension 𝐅₂: ComputationalRing {
     public typealias ComputationalSparseMatrix = EigenSparseMatrixImpl<Self>
     #else
     public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
-    public typealias ComputationalSparseMatrix = CSCMatrixImpl<Self>
+    public typealias ComputationalSparseMatrix = DefaultSparseMatrixImpl<Self>
     #endif
 }
 
 extension Polynomial: ComputationalRing where BaseRing: Field {
     public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
-    public typealias ComputationalSparseMatrix = CSCMatrixImpl<Self>
+    public typealias ComputationalSparseMatrix = DefaultSparseMatrixImpl<Self>
 }
-
-#if USE_EIGEN
-extension EigenSparseMatrixImpl: LUFactorizable where R: EigenSparseMatrixCompatible_LU {}
-#endif

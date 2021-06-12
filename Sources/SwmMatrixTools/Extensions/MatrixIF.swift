@@ -68,13 +68,7 @@ extension MatrixIF where BaseRing: EuclideanRing {
 
 extension MatrixIF where Impl: LUFactorizable {
     public func LUfactorize() -> LUFactorizationResult<Impl, n, m> {
-        let (P, Q, L, U) = impl.LUfactorize()
-        return LUFactorizationResult(
-            P: P.as(Permutation.self),
-            Q: Q.as(Permutation.self),
-            L: .init(L),
-            U: .init(U)
-        )
+        LUFactorizationResult(impl.LUfactorize())
     }
     
     public static func solveLowerTrapezoidal<k>(_ L: Self, _ b: MatrixIF<Impl, n, k>) -> MatrixIF<Impl, m, k>? {
