@@ -30,7 +30,7 @@ extension Int: ComputationalRing {
 
 extension RationalNumber: ComputationalRing {
     #if USE_EIGEN
-    public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
+    public typealias ComputationalMatrix = EigenMatrixImpl<Self>
     public typealias ComputationalSparseMatrix = EigenSparseMatrixImpl<Self>
     #else
     public typealias ComputationalMatrix = DefaultMatrixImpl<Self>

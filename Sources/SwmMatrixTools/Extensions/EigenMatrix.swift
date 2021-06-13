@@ -8,7 +8,8 @@
 #if USE_EIGEN
 import SwmEigen
 
-extension EigenSparseMatrixImpl: LUFactorizable, SparseLUFactorizable where R: EigenSparseMatrixCompatible_LU {}
+extension EigenMatrixImpl: LUFactorizable where R: EigenMatrixCompatible_LU {}
+extension EigenSparseMatrixImpl: LUFactorizable where R: EigenSparseMatrixCompatible_LU {}
 
 #endif
 

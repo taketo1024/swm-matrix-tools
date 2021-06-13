@@ -315,4 +315,4 @@ public struct DefaultSparseMatrixImpl<R: Ring>: SparseMatrixImpl {
     }
 }
 
-extension DefaultSparseMatrixImpl: LUFactorizable, SparseLUFactorizable where BaseRing: Field {}
+extension DefaultSparseMatrixImpl: LUFactorizable where BaseRing: Field {}

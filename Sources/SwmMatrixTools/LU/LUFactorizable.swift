@@ -16,7 +16,6 @@ public protocol LUFactorizable: MatrixImpl {
     
     // Find (P, Q, L, U) such that PAQ = LU.
     func LUfactorize() -> RawLUFactorizationResult
-    func denseLUfactorize() -> RawLUFactorizationResult
     
     // solve L * x = b.
     static func solveLowerTriangular(_ L: Self, _ b: Self) -> Self
@@ -29,10 +28,6 @@ public protocol LUFactorizable: MatrixImpl {
 
 extension LUFactorizable {
     public func LUfactorize() -> RawLUFactorizationResult {
-        denseLUfactorize()
-    }
-    
-    public func denseLUfactorize() -> RawLUFactorizationResult {
         let f = LUFactorizer(self)
         f.run()
         return f.result
@@ -163,16 +158,8 @@ extension LUFactorizable {
     }
 }
 
-public protocol SparseLUFactorizable: SparseMatrixImpl, LUFactorizable {
-    func sparseLUfactorize() -> (P: Permutation<anySize>, Q: Permutation<anySize>, L: Self, U: Self)
-}
-
 extension LUFactorizable where Self: SparseMatrixImpl {
     public func LUfactorize() -> RawLUFactorizationResult {
-        sparseLUfactorize()
-    }
-    
-    public func sparseLUfactorize() -> RawLUFactorizationResult {
         let f = SparseLUFactorizer(self)
         f.run()
         return f.result
