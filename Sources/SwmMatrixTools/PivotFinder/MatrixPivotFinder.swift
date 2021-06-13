@@ -23,58 +23,58 @@ public enum PivotMode {
 }
 
 public final class MatrixPivotFinder {
-    typealias Data = [[(Int, Double)]]
-    
     public let mode: PivotMode
     public let size: MatrixSize
-    private let data: Data
-    private let heads: [(Int, Double)]
-    private let weights: [Double]
     
+    private let data: [[Int]]
+    private let rowHeads: [Int: Int]
+    private let rowWeights: [Double]
+    private let colWeights: [Double]
+
+    private var candidates: [Int: Set<Int>]
     private var pivotRows: Set<Int> // Set(rows)
     private var pivotTable: [Int : Int] // [col : row]
     private var result: [(Int, Int)]
 
     public var debug: Bool = false
     
-    internal init(mode: PivotMode = .rowBased, size: MatrixSize, data: Data, heads: [(Int, Double)], weights: [Double]) {
-        self.mode = mode
-        self.size = size
-        self.data = data
-        self.heads = heads
-        self.weights = weights
-        self.pivotTable = [:]
-        self.pivotRows = []
-        self.result = []
-    }
-    
-    public convenience init<Impl: MatrixImpl>(_ A: Impl, mode: PivotMode = .rowBased) where Impl.BaseRing: ComputationalRing {
-        let n = (mode == .rowBased) ? A.size.rows : A.size.cols
-        var data: Data = Array(repeating: [], count: n)
-        var heads: [(Int, Double)] = Array(repeating: (0, 0), count: n)
-        var weights: [Double] = Array(repeating: 0, count: n)
+    public init<Impl: MatrixImpl>(_ A: Impl, mode: PivotMode = .rowBased) where Impl.BaseRing: ComputationalRing {
+        let (n, m) = (mode == .rowBased)
+            ? A.size
+            : (A.size.cols, A.size.rows)
         
-        if mode == .rowBased {
-            for (i, j, a) in A.nonZeroEntries {
-                let w = a.computationalWeight
-                data[i].append((j, w))
-                weights[i] += w
-                if heads[i].0 > j {
-                    heads[i] = (j, w)
-                }
+        var data: [[Int]] = Array(repeating: [], count: n)
+        var rowHeads: [Int: Int] = [:]
+        var rowWeights: [Double] = Array(repeating: 0, count: n)
+        var colWeights: [Double] = Array(repeating: 0, count: m)
+        var candidates: [Int: Set<Int>] = [:]
+
+        for (i0, j0, a) in A.nonZeroEntries {
+            let (i, j) = (mode == .rowBased) ? (i0, j0) : (j0, i0)
+            let w = a.computationalWeight
+            
+            data[i].append(j)
+            rowWeights[i] += w
+            colWeights[j] += w
+            
+            if rowHeads[i] == nil || j < rowHeads[i]! {
+                rowHeads[i] = j
             }
-        } else {
-            for (i, j, a) in A.nonZeroEntries {
-                let w = a.computationalWeight
-                data[j].append((i, w))
-                weights[j] += w
-                if heads[j].0 > i {
-                    heads[j] = (i, w)
-                }
+            if a.computationalWeight == 1 {
+                candidates[i, default: []].insert(j)
             }
         }
         
-        self.init(mode: mode, size: A.size, data: data, heads: heads, weights: weights)
+        self.mode = mode
+        self.size = A.size
+        self.data = data
+        self.rowHeads = rowHeads
+        self.rowWeights = rowWeights
+        self.colWeights = colWeights
+        self.candidates = candidates
+        self.pivotTable = [:]
+        self.pivotRows = []
+        self.result = []
     }
     
     public convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>, mode: PivotMode = .rowBased) where Impl.BaseRing: ComputationalRing {
@@ -122,9 +122,8 @@ public final class MatrixPivotFinder {
     private func findFLPivots() {
         var candidates: [Int : Int] = [:] // col -> row
         
-        for i in heads.indices {
-            let (j, a) = heads[i]
-            if a == 1 && (!candidates.contains(key: j) || weights[i] < weights[candidates[j]!]) {
+        for (i, j) in rowHeads where isCandidate(i, j) {
+            if !candidates.contains(key: j) || weight(i, j) < weight(candidates[j]!, j) {
                 candidates[j] = i
             }
         }
@@ -138,23 +137,21 @@ public final class MatrixPivotFinder {
     
     private func findFLColumnPivots() {
         let count = pivotTable.count
-        var occupiedCols = Set(pivotRows.flatMap{ i in
-            data[i].map { $0.0 }
-        })
+        var occupiedCols = Set(pivotRows.flatMap{ i in data[i] })
         
         for i in data.indices where !pivotRows.contains(i) {
             var currentCols: Set<Int> = []
-            var candidates: [(Int, Double)] = []
+            var candidates: [Int] = []
             
-            for (j, a) in data[i] where !occupiedCols.contains(j) {
+            for j in data[i] where !occupiedCols.contains(j) {
                 currentCols.insert(j)
-                if a == 1 {
-                    candidates.append((j, a))
+                if isCandidate(i, j) {
+                    candidates.append(j)
                 }
             }
             
-            if let c = candidates.min(by: { $0.1 }) {
-                setPivot(i, c.0)
+            if let j = candidates.min(by: { j in weight(i, j) }) {
+                setPivot(i, j)
                 occupiedCols.formUnion(currentCols)
             }
         }
@@ -210,11 +207,11 @@ public final class MatrixPivotFinder {
         var queued: Set<Int> = []
 
         // initialize
-        for (j, a) in row {
+        for j in row {
             if pivots.contains(key: j) {
                 queue.append(j)
                 queued.insert(j)
-            } else if a == 1 {
+            } else if isCandidate(i, j) {
                 candidates.insert(j)
             }
         }
@@ -223,7 +220,7 @@ public final class MatrixPivotFinder {
             let j1 = queue.removeFirst()
             let i2 = pivots[j1]!
 
-            for (j2, _) in data[i2] {
+            for j2 in data[i2] {
                 if pivots.contains(key: j2) && !queued.contains(j2) {
                     queue.append(j2)
                     queued.insert(j2)
@@ -246,8 +243,7 @@ public final class MatrixPivotFinder {
     private func sortPivots() -> [(Int, Int)] {
         let tree = PlainGraph(structure: Dictionary(keys: pivotTable.keys) { j1 -> [Int] in
             let i1 = pivotTable[j1]!
-            return data[i1].reduce(into: []) { (res, next) in
-                let j2 = next.0
+            return data[i1].reduce(into: []) { (res, j2) in
                 if j1 != j2 && pivotTable.contains(key: j2) {
                     res.append(j2)
                 }
@@ -260,9 +256,18 @@ public final class MatrixPivotFinder {
         }
     }
     
+    private func isCandidate(_ i: Int, _ j: Int) -> Bool {
+        candidates[i]?.contains(j) ?? false
+    }
+    
+    private func weight(_ i: Int, _ j: Int) -> Double {
+        rowWeights[i] * colWeights[j]
+    }
+    
     private func setPivot(_ i: Int, _ j: Int) {
         pivotRows.insert(i)
         pivotTable[j] = i
+        candidates[i] = nil
     }
     
     private func log(_ msg: @autoclosure () -> String) {
