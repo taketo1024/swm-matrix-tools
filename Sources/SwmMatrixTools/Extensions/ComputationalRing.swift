@@ -75,12 +75,12 @@ extension 𝐅₂: ComputationalRing {
     }
 }
 
-extension Polynomial: ComputationalRing where BaseRing: Field {
+extension Polynomial: ComputationalRing where BaseRing: Field & ComputationalRing {
     public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
     public typealias ComputationalSparseMatrix = DefaultSparseMatrixImpl<Self>
     
     @inlinable
     public var computationalWeight: Double {
-        isZero ? 0 : Double(leadExponent + 1)
+        isZero ? 0 : Double(leadExponent + 1) * leadCoeff.computationalWeight
     }
 }
