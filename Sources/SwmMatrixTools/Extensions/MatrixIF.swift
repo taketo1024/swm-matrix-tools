@@ -33,6 +33,19 @@ extension MatrixIF {
             entries: indices.enumerated().map{ (j, idx) in (idx, j, .identity) }
         )
     }
+}
+
+extension MatrixIF where Impl.BaseRing: ComputationalRing {
+    public func findPivots(mode: PivotMode = .rowBased) -> (pivots: [(Int, Int)], P: Permutation<n>, Q: Permutation<m>) {
+        let pf = MatrixPivotFinder(self, mode: mode)
+        pf.run()
+        
+        return (
+            pivots: pf.pivots,
+            P: pf.rowPermutation.as(Permutation.self),
+            Q: pf.colPermutation.as(Permutation.self)
+        )
+    }
     
     internal func appliedRowOperations<S>(_ ops: S) -> Self
     where S: Sequence, S.Element == RowElementaryOperation<BaseRing> {
@@ -47,20 +60,7 @@ extension MatrixIF {
     }
 }
 
-extension MatrixIF {
-    public func findPivots(mode: PivotMode = .rowBased) -> (pivots: [(Int, Int)], P: Permutation<n>, Q: Permutation<m>) {
-        let pf = MatrixPivotFinder(self, mode: mode)
-        pf.run()
-        
-        return (
-            pivots: pf.pivots,
-            P: pf.rowPermutation.as(Permutation.self),
-            Q: pf.colPermutation.as(Permutation.self)
-        )
-    }
-}
-
-extension MatrixIF where BaseRing: EuclideanRing {
+extension MatrixIF where BaseRing: EuclideanRing & ComputationalRing {
     public func eliminate(form: MatrixEliminationForm = .Diagonal) -> MatrixEliminationResult<Impl, n, m> {
         MatrixEliminator.eliminate(self, form: form)
     }

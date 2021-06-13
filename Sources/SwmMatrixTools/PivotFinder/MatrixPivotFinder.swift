@@ -48,7 +48,7 @@ public final class MatrixPivotFinder {
         self.result = []
     }
     
-    public convenience init<Impl: MatrixImpl>(_ A: Impl, mode: PivotMode = .rowBased) {
+    public convenience init<Impl: MatrixImpl>(_ A: Impl, mode: PivotMode = .rowBased) where Impl.BaseRing: ComputationalRing {
         let n = (mode == .rowBased) ? A.size.rows : A.size.cols
         var data: Data = Array(repeating: [], count: n)
         var heads: [(Int, Double)] = Array(repeating: (0, 0), count: n)
@@ -77,7 +77,7 @@ public final class MatrixPivotFinder {
         self.init(mode: mode, size: A.size, data: data, heads: heads, weights: weights)
     }
     
-    public convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>, mode: PivotMode = .rowBased) {
+    public convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>, mode: PivotMode = .rowBased) where Impl.BaseRing: ComputationalRing {
         self.init(A.impl, mode: mode)
     }
     

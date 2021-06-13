@@ -16,6 +16,8 @@ import SwmEigen
 public protocol ComputationalRing {
     associatedtype ComputationalMatrix: MatrixImpl where ComputationalMatrix.BaseRing == Self
     associatedtype ComputationalSparseMatrix: SparseMatrixImpl where ComputationalSparseMatrix.BaseRing == Self
+    
+    var computationalWeight: Double { get } // used for matrix elimination
 }
 
 extension Int: ComputationalRing {
@@ -26,6 +28,11 @@ extension Int: ComputationalRing {
     public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
     public typealias ComputationalSparseMatrix = DefaultSparseMatrixImpl<Self>
     #endif
+    
+    @inlinable
+    public var computationalWeight: Double {
+        Double(Swift.abs(self))
+    }
 }
 
 extension RationalNumber: ComputationalRing {
@@ -36,11 +43,21 @@ extension RationalNumber: ComputationalRing {
     public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
     public typealias ComputationalSparseMatrix = DefaultSparseMatrixImpl<Self>
     #endif
+    
+    @inlinable
+    public var computationalWeight: Double {
+        isZero ? 0 : Double(max(numerator.abs, denominator))
+    }
 }
 
 extension RealNumber: ComputationalRing {
     public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
     public typealias ComputationalSparseMatrix = DefaultSparseMatrixImpl<Self>
+    
+    @inlinable
+    public var computationalWeight: Double {
+        isZero ? 0 : Double( Swift.abs( max(self, 1/self) ) )
+    }
 }
 
 extension 𝐅₂: ComputationalRing {
@@ -51,9 +68,19 @@ extension 𝐅₂: ComputationalRing {
     public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
     public typealias ComputationalSparseMatrix = DefaultSparseMatrixImpl<Self>
     #endif
+    
+    @inlinable
+    public var computationalWeight: Double {
+        isZero ? 0 : 1
+    }
 }
 
 extension Polynomial: ComputationalRing where BaseRing: Field {
     public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
     public typealias ComputationalSparseMatrix = DefaultSparseMatrixImpl<Self>
+    
+    @inlinable
+    public var computationalWeight: Double {
+        isZero ? 0 : Double(leadExponent + 1)
+    }
 }

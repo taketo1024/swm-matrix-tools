@@ -7,7 +7,7 @@
 
 import SwmCore
 
-public final class LUFactorizer<M: LUFactorizable> {
+public final class LUFactorizer<M> where M: LUFactorizable, M.BaseRing: ComputationalRing {
     public typealias R = M.BaseRing
     private let eliminator: LUEliminator
     

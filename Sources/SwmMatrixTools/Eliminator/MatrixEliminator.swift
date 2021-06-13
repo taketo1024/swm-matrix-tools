@@ -8,7 +8,7 @@
 
 import SwmCore
 
-public class MatrixEliminator<R: Ring> {
+public class MatrixEliminator<R> where R: ComputationalRing {
     internal var data: MatrixEliminationData<R>
     internal var rowOps: [RowElementaryOperation<R>]
     internal var colOps: [ColElementaryOperation<R>]

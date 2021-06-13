@@ -27,12 +27,6 @@ public protocol LUFactorizable: MatrixImpl {
 }
 
 extension LUFactorizable {
-    public func LUfactorize() -> RawLUFactorizationResult {
-        let f = LUFactorizer(self)
-        f.run()
-        return f.result
-    }
-    
     public static func solveLowerTriangular(_ L: Self, _ B: Self) -> Self {
         assert(L.isSquare)
         assert(L.isLowerTriangular)
@@ -158,7 +152,15 @@ extension LUFactorizable {
     }
 }
 
-extension LUFactorizable where Self: SparseMatrixImpl {
+extension LUFactorizable where Self.BaseRing: ComputationalRing {
+    public func LUfactorize() -> RawLUFactorizationResult {
+        let f = LUFactorizer(self)
+        f.run()
+        return f.result
+    }
+}
+
+extension LUFactorizable where Self: SparseMatrixImpl, Self.BaseRing: ComputationalRing {
     public func LUfactorize() -> RawLUFactorizationResult {
         let f = SparseLUFactorizer(self)
         f.run()

@@ -8,7 +8,8 @@
 
 import SwmCore
 
-internal final class DiagonalEliminator<R: EuclideanRing>: MatrixEliminator<R> {
+internal final class DiagonalEliminator<R>: MatrixEliminator<R>
+where R: EuclideanRing & ComputationalRing {
     override var form: MatrixEliminationForm {
         .Diagonal
     }

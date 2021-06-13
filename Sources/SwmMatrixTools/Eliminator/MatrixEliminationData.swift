@@ -7,7 +7,7 @@
 
 import SwmCore
 
-internal struct MatrixEliminationData<R: Ring> {
+internal struct MatrixEliminationData<R> where R: ComputationalRing {
     private(set) var size: MatrixSize
     private(set) var rows: [Row]
     private(set) var rowWeights: [Double]

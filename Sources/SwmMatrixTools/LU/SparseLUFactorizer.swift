@@ -7,7 +7,7 @@
 
 import SwmCore
 
-public final class SparseLUFactorizer<M: SparseMatrixImpl & LUFactorizable> {
+public final class SparseLUFactorizer<M: SparseMatrixImpl & LUFactorizable> where M.BaseRing: ComputationalRing {
     public typealias Matrix = M
     
     public let densityThreshold = 0.3
