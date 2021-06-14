@@ -30,8 +30,8 @@ public final class MatrixPivotFinder {
     private let rowHeads: [Int: Int]
     private let rowWeights: [Double]
     private let colWeights: [Double]
-
-    private var candidates: [Int: Set<Int>]
+    private let candidates: [Int: Set<Int>]
+    
     private var pivotRows: Set<Int> // Set(rows)
     private var pivotTable: [Int : Int] // [col : row]
     private var result: [(Int, Int)]
@@ -160,27 +160,38 @@ public final class MatrixPivotFinder {
     }
     
     private func findCycleFreePivots() {
+        var remainingRows = Set(data.indices).subtracting(pivotRows)
+        if remainingRows.isEmpty {
+            return
+        }
+        
         let count = pivotTable.count
         let atomic = DispatchQueue(label: "atomic", qos: .userInteractive)
-
-        let remainingRows = data.indices.exclude{ i in pivotRows.contains(i) }
-        remainingRows.parallelForEach { i in
-            while true {
-                let copy = atomic.sync { self.pivotTable }
-                guard let pivot = self.findCycleFreePivot(inRow: i, pivots: copy) else {
-                    break
-                }
-
-                let done = atomic.sync { () -> Bool in
-                    if copy.count != self.pivotTable.count {
-                        return false
+        
+        DispatchQueue.concurrentPerform(iterations: 12) { _ in
+            // create local copy.
+            var pivotTable = atomic.sync {
+                self.pivotTable
+            }
+            while let i = atomic.sync(execute: { remainingRows.popFirst() }) {
+                if let pivot = self.findCycleFreePivot(inRow: i, pivots: pivotTable) {
+                    atomic.sync {
+                        // update results if not updated by other threads.
+                        if pivotTable.count == self.pivotTable.count {
+                            self.setPivot(pivot.0, pivot.1)
+                        }
+                        // otherwise retry i.
+                        else {
+                            remainingRows.insert(i)
+                        }
                     }
-                    self.setPivot(pivot.0, pivot.1)
-                    return true
                 }
 
-                if done {
-                    break
+                atomic.sync {
+                    // update local copy if necessary
+                    if pivotTable.count != self.pivotTable.count {
+                        pivotTable = self.pivotTable // recopy
+                    }
                 }
             }
         }
@@ -233,7 +244,7 @@ public final class MatrixPivotFinder {
             }
         }
 
-        if let j = candidates.anyElement {
+        if let j = candidates.min(by: { j in weight(i, j) }) {
             return (i, j)
         } else {
             return nil
@@ -267,7 +278,6 @@ public final class MatrixPivotFinder {
     private func setPivot(_ i: Int, _ j: Int) {
         pivotRows.insert(i)
         pivotTable[j] = i
-        candidates[i] = nil
     }
     
     private func log(_ msg: @autoclosure () -> String) {
