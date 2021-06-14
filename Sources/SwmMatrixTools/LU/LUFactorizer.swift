@@ -41,14 +41,14 @@ public final class LUFactorizer<M> where M: LUFactorizable, M.BaseRing: Computat
         for case let .SwapRows(i, j) in eliminator.rowOps {
             indices.swapAt(i, j)
         }
-        return Permutation(length: n, indices: indices).inverse!
+        return Permutation(indices: indices).inverse!
     }
     
     public var Q: Permutation<anySize> {
         let data = eliminator.data
         let m = data.size.cols
         let indices = data.headEntries.map { $0.col }
-        return Permutation(length: m, indices: indices, fillRemaining: true).inverse!
+        return Permutation.fill(length: m, indices: indices).inverse!
     }
     
     public var L: M {

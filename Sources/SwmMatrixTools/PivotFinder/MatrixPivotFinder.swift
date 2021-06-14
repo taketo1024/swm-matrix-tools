@@ -96,7 +96,7 @@ public final class MatrixPivotFinder {
     }
     
     private func asPermutation(_ length: Int, _ order: [Int]) -> Permutation<anySize> {
-        Permutation(length: length, indices: order, fillRemaining: true).inverse!
+        Permutation.fill(length: length, indices: order).inverse!
     }
     
     public func run() {
@@ -258,18 +258,13 @@ public final class MatrixPivotFinder {
     }
     
     private func sortPivots() -> [(Int, Int)] {
-        let tree = PlainGraph(structure: Dictionary(keys: pivotTable.keys) { j1 -> [Int] in
+        try! pivotTable.keys.topologicalSort { j1 in
             let i1 = pivotTable[j1]!
-            return data[i1].reduce(into: []) { (res, j2) in
-                if j1 != j2 && pivotTable.contains(key: j2) {
-                    res.append(j2)
-                }
+            return data[i1].filter { j2 in
+                j1 != j2 && pivotTable.contains(key: j2)
             }
-        })
-        let sorted = tree.topologicalSort()
-        return sorted.map { v in
-            let j = v.id
-            return (pivotTable[j]!, j)
+        }.map { j in
+            (pivotTable[j]!, j)
         }
     }
     
