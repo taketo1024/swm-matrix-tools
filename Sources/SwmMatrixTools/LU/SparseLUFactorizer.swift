@@ -10,13 +10,13 @@ import SwmCore
 public final class SparseLUFactorizer<M: SparseMatrixImpl & LUFactorizable> where M.BaseRing: ComputationalRing {
     public typealias Matrix = M
     
-    public let densityThreshold = 0.3
     public private(set) var target: Matrix
     public private(set) var P: Permutation<anySize>
     public private(set) var Q: Permutation<anySize>
     public private(set) var L: Matrix
     public private(set) var U: Matrix
     
+    public var densityThreshold = 0.3
     public var debug: Bool
     
     public convenience init<n, m>(_ A: MatrixIF<Matrix, n, m>, debug: Bool = false) {
