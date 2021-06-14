@@ -136,6 +136,10 @@ public final class MatrixPivotFinder {
     }
     
     private func findFLColumnPivots() {
+        if pivotRows.count >= min(size.rows, size.cols) {
+            return
+        }
+        
         let count = pivotTable.count
         var occupiedCols = Set(pivotRows.flatMap{ i in data[i] })
         
@@ -160,46 +164,48 @@ public final class MatrixPivotFinder {
     }
     
     private func findCycleFreePivots() {
-        var remainingRows = Set(data.indices).subtracting(pivotRows)
+        var remainingRows = Set(data.indices).subtracting(pivotRows).sorted{ -rowWeights[$0] } // sorted in heavy order.
         if remainingRows.isEmpty {
             return
         }
         
-        let count = pivotTable.count
-        let atomic = DispatchQueue(label: "atomic", qos: .userInteractive)
+//        log("start findCycleFreePivots.")
         
-        DispatchQueue.concurrentPerform(iterations: 12) { _ in
-            // create local copy.
-            var pivotTable = atomic.sync {
-                self.pivotTable
+        let count = pivotTable.count
+        var batch = 1
+        var itr = 1
+        
+        while !remainingRows.isEmpty {
+//            log("iteration: \(itr), targets: \(min(batch, remainingRows.count)) / \(remainingRows.count)")
+            
+            let targets = (0 ..< batch).compactMap { _ in
+                remainingRows.isEmpty ? nil : remainingRows.removeLast()
             }
-            while let i = atomic.sync(execute: { remainingRows.popFirst() }) {
-                if let pivot = self.findCycleFreePivot(inRow: i, pivots: pivotTable) {
-                    atomic.sync {
-                        // update results if not updated by other threads.
-                        if pivotTable.count == self.pivotTable.count {
-                            self.setPivot(pivot.0, pivot.1)
-                        }
-                        // otherwise retry i.
-                        else {
-                            remainingRows.insert(i)
-                        }
-                    }
-                }
-
-                atomic.sync {
-                    // update local copy if necessary
-                    if pivotTable.count != self.pivotTable.count {
-                        pivotTable = self.pivotTable // recopy
-                    }
+            let candidates = targets.parallelCompactMap { i in
+                self.findCycleFreePivot(inRow: i) // runs in parallel
+            }
+            
+//            log("found \(candidates.count) candidates")
+            
+            if candidates.count == 0 {
+                batch *= 2
+            } else if candidates.count >= 2 && batch > 1 {
+                batch /= 2
+            }
+            
+            if let (i, j) = candidates.min(by: { (i, j) in weight(i, j) }) {
+                self.setPivot(i, j)
+                for (i1, _) in candidates where i1 != i {
+                    remainingRows.append(i1)
                 }
             }
+            itr += 1
         }
 
         log("cycle-free-pivots: \(pivotTable.count - count)")
     }
 
-    private func findCycleFreePivot(inRow i: Int, pivots: [Int : Int]) -> (Int, Int)? {
+    private func findCycleFreePivot(inRow i: Int) -> (Int, Int)? {
         let row = data[i]
 
         //       j1
@@ -219,7 +225,7 @@ public final class MatrixPivotFinder {
 
         // initialize
         for j in row {
-            if pivots.contains(key: j) {
+            if pivotTable.contains(key: j) {
                 queue.append(j)
                 queued.insert(j)
             } else if isCandidate(i, j) {
@@ -229,10 +235,10 @@ public final class MatrixPivotFinder {
 
         while !queue.isEmpty && !candidates.isEmpty {
             let j1 = queue.removeFirst()
-            let i2 = pivots[j1]!
+            let i2 = pivotTable[j1]!
 
             for j2 in data[i2] {
-                if pivots.contains(key: j2) && !queued.contains(j2) {
+                if pivotTable.contains(key: j2) && !queued.contains(j2) {
                     queue.append(j2)
                     queued.insert(j2)
                 } else if candidates.contains(j2) {
