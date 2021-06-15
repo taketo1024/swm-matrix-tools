@@ -20,12 +20,17 @@ public protocol ComputationalRing {
 
 extension ComputationalRing {
     public typealias ComputationalMatrix<n, m> = MatrixIF<ComputationalMatrixImpl, n, m> where n: SizeType, m: SizeType
+    public typealias ComputationalVector<n> = ColVectorIF<ComputationalMatrixImpl, n> where n: SizeType
     public typealias ComputationalSparseMatrix<n, m> = MatrixIF<ComputationalSparseMatrixImpl, n, m> where n: SizeType, m: SizeType
+    public typealias ComputationalSparseVector<n> = ColVectorIF<ComputationalSparseMatrixImpl, n> where n: SizeType
 }
+
+public protocol ComputationalEuclideanRing: ComputationalRing, EuclideanRing {}
+public protocol ComputationalField: ComputationalEuclideanRing, Field where ComputationalMatrixImpl: LUFactorizable, ComputationalSparseMatrixImpl: LUFactorizable {}
 
 // TODO implement `DefaultDenseMatrixImpl`.
 
-extension Int: ComputationalRing {
+extension Int: ComputationalEuclideanRing {
     #if USE_EIGEN
     public typealias ComputationalMatrixImpl = DefaultMatrixImpl<Self>
     public typealias ComputationalSparseMatrixImpl = EigenSparseMatrixImpl<Self>
@@ -40,7 +45,7 @@ extension Int: ComputationalRing {
     }
 }
 
-extension RationalNumber: ComputationalRing {
+extension RationalNumber: ComputationalField {
     #if USE_EIGEN
     public typealias ComputationalMatrixImpl = EigenMatrixImpl<Self>
     public typealias ComputationalSparseMatrixImpl = EigenSparseMatrixImpl<Self>
@@ -55,9 +60,9 @@ extension RationalNumber: ComputationalRing {
     }
 }
 
-extension RealNumber: ComputationalRing {
-    public typealias ComputationalMatrixImpl = DefaultMatrixImpl<Self>
-    public typealias ComputationalSparseMatrixImpl = DefaultSparseMatrixImpl<Self>
+extension RealNumber: ComputationalField {
+    public typealias ComputationalMatrixImpl = EigenMatrixImpl<Self>
+    public typealias ComputationalSparseMatrixImpl = EigenSparseMatrixImpl<Self>
     
     @inlinable
     public var computationalWeight: Double {
@@ -65,9 +70,9 @@ extension RealNumber: ComputationalRing {
     }
 }
 
-extension 𝐅₂: ComputationalRing {
+extension 𝐅₂: ComputationalField {
     #if USE_EIGEN
-    public typealias ComputationalMatrixImpl = DefaultMatrixImpl<Self>
+    public typealias ComputationalMatrixImpl = EigenMatrixImpl<Self>
     public typealias ComputationalSparseMatrixImpl = EigenSparseMatrixImpl<Self>
     #else
     public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
@@ -80,7 +85,7 @@ extension 𝐅₂: ComputationalRing {
     }
 }
 
-extension Polynomial: ComputationalRing where BaseRing: Field & ComputationalRing {
+extension Polynomial: ComputationalRing, ComputationalEuclideanRing where BaseRing: ComputationalField {
     public typealias ComputationalMatrixImpl = DefaultMatrixImpl<Self>
     public typealias ComputationalSparseMatrixImpl = DefaultSparseMatrixImpl<Self>
     
