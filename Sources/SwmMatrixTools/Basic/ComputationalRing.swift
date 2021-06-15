@@ -11,19 +11,24 @@ import SwmCore
 import SwmEigen
 #endif
 
-// TODO implement `DefaultDenseMatrixImpl`.
-
 public protocol ComputationalRing {
-    associatedtype ComputationalMatrix: MatrixImpl where ComputationalMatrix.BaseRing == Self
-    associatedtype ComputationalSparseMatrix: SparseMatrixImpl where ComputationalSparseMatrix.BaseRing == Self
+    associatedtype ComputationalMatrixImpl: MatrixImpl where ComputationalMatrixImpl.BaseRing == Self
+    associatedtype ComputationalSparseMatrixImpl: SparseMatrixImpl where ComputationalSparseMatrixImpl.BaseRing == Self
     
     var computationalWeight: Double { get } // used for matrix elimination
 }
 
+extension ComputationalRing {
+    public typealias ComputationalMatrix<n, m> = MatrixIF<ComputationalMatrixImpl, n, m> where n: SizeType, m: SizeType
+    public typealias ComputationalSparseMatrix<n, m> = MatrixIF<ComputationalSparseMatrixImpl, n, m> where n: SizeType, m: SizeType
+}
+
+// TODO implement `DefaultDenseMatrixImpl`.
+
 extension Int: ComputationalRing {
     #if USE_EIGEN
-    public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
-    public typealias ComputationalSparseMatrix = EigenSparseMatrixImpl<Self>
+    public typealias ComputationalMatrixImpl = DefaultMatrixImpl<Self>
+    public typealias ComputationalSparseMatrixImpl = EigenSparseMatrixImpl<Self>
     #else
     public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
     public typealias ComputationalSparseMatrix = DefaultSparseMatrixImpl<Self>
@@ -37,8 +42,8 @@ extension Int: ComputationalRing {
 
 extension RationalNumber: ComputationalRing {
     #if USE_EIGEN
-    public typealias ComputationalMatrix = EigenMatrixImpl<Self>
-    public typealias ComputationalSparseMatrix = EigenSparseMatrixImpl<Self>
+    public typealias ComputationalMatrixImpl = EigenMatrixImpl<Self>
+    public typealias ComputationalSparseMatrixImpl = EigenSparseMatrixImpl<Self>
     #else
     public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
     public typealias ComputationalSparseMatrix = DefaultSparseMatrixImpl<Self>
@@ -51,8 +56,8 @@ extension RationalNumber: ComputationalRing {
 }
 
 extension RealNumber: ComputationalRing {
-    public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
-    public typealias ComputationalSparseMatrix = DefaultSparseMatrixImpl<Self>
+    public typealias ComputationalMatrixImpl = DefaultMatrixImpl<Self>
+    public typealias ComputationalSparseMatrixImpl = DefaultSparseMatrixImpl<Self>
     
     @inlinable
     public var computationalWeight: Double {
@@ -62,8 +67,8 @@ extension RealNumber: ComputationalRing {
 
 extension 𝐅₂: ComputationalRing {
     #if USE_EIGEN
-    public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
-    public typealias ComputationalSparseMatrix = EigenSparseMatrixImpl<Self>
+    public typealias ComputationalMatrixImpl = DefaultMatrixImpl<Self>
+    public typealias ComputationalSparseMatrixImpl = EigenSparseMatrixImpl<Self>
     #else
     public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
     public typealias ComputationalSparseMatrix = DefaultSparseMatrixImpl<Self>
@@ -76,8 +81,8 @@ extension 𝐅₂: ComputationalRing {
 }
 
 extension Polynomial: ComputationalRing where BaseRing: Field & ComputationalRing {
-    public typealias ComputationalMatrix = DefaultMatrixImpl<Self>
-    public typealias ComputationalSparseMatrix = DefaultSparseMatrixImpl<Self>
+    public typealias ComputationalMatrixImpl = DefaultMatrixImpl<Self>
+    public typealias ComputationalSparseMatrixImpl = DefaultSparseMatrixImpl<Self>
     
     @inlinable
     public var computationalWeight: Double {
