@@ -45,8 +45,6 @@ class MatrixPivotFinderTests: XCTestCase {
         let (pivs, p, q) = A.findPivots(mode: .colBased)
         let B = A.permute(rowsBy: p, colsBy: q)
 
-        print(B.detailDescription)
-        
         XCTAssertTrue(pivs.count >= 3)
         XCTAssertTrue(
             B.submatrix(rowRange: 0 ..< pivs.count, colRange: 0 ..< pivs.count)

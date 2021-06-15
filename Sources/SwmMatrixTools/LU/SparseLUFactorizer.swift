@@ -7,16 +7,16 @@
 
 import SwmCore
 
-public final class SparseLUFactorizer<M: SparseMatrixImpl & LUFactorizable> {
+public final class SparseLUFactorizer<M: SparseMatrixImpl & LUFactorizable> where M.BaseRing: ComputationalRing {
     public typealias Matrix = M
     
-    public let densityThreshold = 0.3
     public private(set) var target: Matrix
     public private(set) var P: Permutation<anySize>
     public private(set) var Q: Permutation<anySize>
     public private(set) var L: Matrix
     public private(set) var U: Matrix
     
+    public var densityThreshold = 0.3
     public var debug: Bool
     
     public convenience init<n, m>(_ A: MatrixIF<Matrix, n, m>, debug: Bool = false) {
@@ -129,14 +129,9 @@ public final class SparseLUFactorizer<M: SparseMatrixImpl & LUFactorizable> {
             return
         }
         
-        let e = LUFactorizer(target)
-        e.run()
-        
-        guard e.isDone else {
-            fatalError()
-        }
-        
-        let (P, Q, L, U) = e.result!
+        let f = LUFactorizer(target)
+        f.run()
+        let (P, Q, L, U) = f.result
         
         compose(P, Q, L, U)
         target = .zero(size: (L.size.rows - L.size.cols, U.size.cols - U.size.rows))

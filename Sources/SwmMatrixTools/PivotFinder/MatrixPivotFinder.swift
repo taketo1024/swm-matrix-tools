@@ -23,13 +23,14 @@ public enum PivotMode {
 }
 
 public final class MatrixPivotFinder {
-    typealias Data = [[(Int, Double)]]
-    
     public let mode: PivotMode
     public let size: MatrixSize
-    private let data: Data
-    private let heads: [(Int, Double)]
-    private let weights: [Double]
+    
+    private let data: [[Int]]
+    private let rowHeads: [Int: Int]
+    private let rowWeights: [Double]
+    private let colWeights: [Double]
+    private let candidates: [Int: Set<Int>]
     
     private var pivotRows: Set<Int> // Set(rows)
     private var pivotTable: [Int : Int] // [col : row]
@@ -37,47 +38,46 @@ public final class MatrixPivotFinder {
 
     public var debug: Bool = false
     
-    internal init(mode: PivotMode = .rowBased, size: MatrixSize, data: Data, heads: [(Int, Double)], weights: [Double]) {
+    public init<Impl: MatrixImpl>(_ A: Impl, mode: PivotMode = .rowBased) where Impl.BaseRing: ComputationalRing {
+        let (n, m) = (mode == .rowBased)
+            ? A.size
+            : (A.size.cols, A.size.rows)
+        
+        var data: [[Int]] = Array(repeating: [], count: n)
+        var rowHeads: [Int: Int] = [:]
+        var rowWeights: [Double] = Array(repeating: 0, count: n)
+        var colWeights: [Double] = Array(repeating: 0, count: m)
+        var candidates: [Int: Set<Int>] = [:]
+
+        for (i0, j0, a) in A.nonZeroEntries {
+            let (i, j) = (mode == .rowBased) ? (i0, j0) : (j0, i0)
+            let w = a.computationalWeight
+            
+            data[i].append(j)
+            rowWeights[i] += w
+            colWeights[j] += w
+            
+            if rowHeads[i] == nil || j < rowHeads[i]! {
+                rowHeads[i] = j
+            }
+            if a.computationalWeight == 1 {
+                candidates[i, default: []].insert(j)
+            }
+        }
+        
         self.mode = mode
-        self.size = size
+        self.size = A.size
         self.data = data
-        self.heads = heads
-        self.weights = weights
+        self.rowHeads = rowHeads
+        self.rowWeights = rowWeights
+        self.colWeights = colWeights
+        self.candidates = candidates
         self.pivotTable = [:]
         self.pivotRows = []
         self.result = []
     }
     
-    public convenience init<Impl: MatrixImpl>(_ A: Impl, mode: PivotMode = .rowBased) {
-        let n = (mode == .rowBased) ? A.size.rows : A.size.cols
-        var data: Data = Array(repeating: [], count: n)
-        var heads: [(Int, Double)] = Array(repeating: (0, 0), count: n)
-        var weights: [Double] = Array(repeating: 0, count: n)
-        
-        if mode == .rowBased {
-            for (i, j, a) in A.nonZeroEntries {
-                let w = a.computationalWeight
-                data[i].append((j, w))
-                weights[i] += w
-                if heads[i].0 > j {
-                    heads[i] = (j, w)
-                }
-            }
-        } else {
-            for (i, j, a) in A.nonZeroEntries {
-                let w = a.computationalWeight
-                data[j].append((i, w))
-                weights[j] += w
-                if heads[j].0 > i {
-                    heads[j] = (i, w)
-                }
-            }
-        }
-        
-        self.init(mode: mode, size: A.size, data: data, heads: heads, weights: weights)
-    }
-    
-    public convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>, mode: PivotMode = .rowBased) {
+    public convenience init<Impl, n, m>(_ A: MatrixIF<Impl, n, m>, mode: PivotMode = .rowBased) where Impl.BaseRing: ComputationalRing {
         self.init(A.impl, mode: mode)
     }
     
@@ -96,7 +96,7 @@ public final class MatrixPivotFinder {
     }
     
     private func asPermutation(_ length: Int, _ order: [Int]) -> Permutation<anySize> {
-        Permutation(length: length, indices: order, fillRemaining: true).inverse!
+        Permutation.fill(length: length, indices: order).inverse!
     }
     
     public func run() {
@@ -122,9 +122,8 @@ public final class MatrixPivotFinder {
     private func findFLPivots() {
         var candidates: [Int : Int] = [:] // col -> row
         
-        for i in heads.indices {
-            let (j, a) = heads[i]
-            if a == 1 && (!candidates.contains(key: j) || weights[i] < weights[candidates[j]!]) {
+        for (i, j) in rowHeads where isCandidate(i, j) {
+            if !candidates.contains(key: j) || weight(i, j) < weight(candidates[j]!, j) {
                 candidates[j] = i
             }
         }
@@ -137,24 +136,26 @@ public final class MatrixPivotFinder {
     }
     
     private func findFLColumnPivots() {
+        if pivotRows.count >= min(size.rows, size.cols) {
+            return
+        }
+        
         let count = pivotTable.count
-        var occupiedCols = Set(pivotRows.flatMap{ i in
-            data[i].map { $0.0 }
-        })
+        var occupiedCols = Set(pivotRows.flatMap{ i in data[i] })
         
         for i in data.indices where !pivotRows.contains(i) {
             var currentCols: Set<Int> = []
-            var candidates: [(Int, Double)] = []
+            var candidates: [Int] = []
             
-            for (j, a) in data[i] where !occupiedCols.contains(j) {
+            for j in data[i] where !occupiedCols.contains(j) {
                 currentCols.insert(j)
-                if a == 1 {
-                    candidates.append((j, a))
+                if isCandidate(i, j) {
+                    candidates.append(j)
                 }
             }
             
-            if let c = candidates.min(by: { $0.1 }) {
-                setPivot(i, c.0)
+            if let j = candidates.min(by: { j in weight(i, j) }) {
+                setPivot(i, j)
                 occupiedCols.formUnion(currentCols)
             }
         }
@@ -163,35 +164,48 @@ public final class MatrixPivotFinder {
     }
     
     private func findCycleFreePivots() {
+        var remainingRows = Set(data.indices).subtracting(pivotRows).sorted{ -rowWeights[$0] } // sorted in heavy order.
+        if remainingRows.isEmpty {
+            return
+        }
+        
+//        log("start findCycleFreePivots.")
+        
         let count = pivotTable.count
-        let atomic = DispatchQueue(label: "atomic", qos: .userInteractive)
-
-        let remainingRows = data.indices.exclude{ i in pivotRows.contains(i) }
-        remainingRows.parallelForEach { i in
-            while true {
-                let copy = atomic.sync { self.pivotTable }
-                guard let pivot = self.findCycleFreePivot(inRow: i, pivots: copy) else {
-                    break
-                }
-
-                let done = atomic.sync { () -> Bool in
-                    if copy.count != self.pivotTable.count {
-                        return false
-                    }
-                    self.setPivot(pivot.0, pivot.1)
-                    return true
-                }
-
-                if done {
-                    break
+        var batch = 1
+        var itr = 1
+        
+        while !remainingRows.isEmpty {
+//            log("iteration: \(itr), targets: \(min(batch, remainingRows.count)) / \(remainingRows.count)")
+            
+            let targets = (0 ..< batch).compactMap { _ in
+                remainingRows.isEmpty ? nil : remainingRows.removeLast()
+            }
+            let candidates = targets.parallelCompactMap { i in
+                self.findCycleFreePivot(inRow: i) // runs in parallel
+            }
+            
+//            log("found \(candidates.count) candidates")
+            
+            if candidates.count == 0 {
+                batch *= 2
+            } else if candidates.count >= 2 && batch > 1 {
+                batch /= 2
+            }
+            
+            if let (i, j) = candidates.min(by: { (i, j) in weight(i, j) }) {
+                self.setPivot(i, j)
+                for (i1, _) in candidates where i1 != i {
+                    remainingRows.append(i1)
                 }
             }
+            itr += 1
         }
 
         log("cycle-free-pivots: \(pivotTable.count - count)")
     }
 
-    private func findCycleFreePivot(inRow i: Int, pivots: [Int : Int]) -> (Int, Int)? {
+    private func findCycleFreePivot(inRow i: Int) -> (Int, Int)? {
         let row = data[i]
 
         //       j1
@@ -206,27 +220,25 @@ public final class MatrixPivotFinder {
 
         // the following are col-indexed.
         var candidates: Set<Int> = []
-        var queue: [Int] = []
-        var queued: Set<Int> = []
+        var queue: OrderedSet<Int> = []
 
         // initialize
-        for (j, a) in row {
-            if pivots.contains(key: j) {
+        for j in row {
+            if pivotTable.contains(key: j) {
                 queue.append(j)
-                queued.insert(j)
-            } else if a == 1 {
+            } else if isCandidate(i, j) {
                 candidates.insert(j)
             }
         }
+        
+        var idx = 0
+        while idx < queue.count && !candidates.isEmpty {
+            let j1 = queue[idx]
+            let i2 = pivotTable[j1]!
 
-        while !queue.isEmpty && !candidates.isEmpty {
-            let j1 = queue.removeFirst()
-            let i2 = pivots[j1]!
-
-            for (j2, _) in data[i2] {
-                if pivots.contains(key: j2) && !queued.contains(j2) {
-                    queue.append(j2)
-                    queued.insert(j2)
+            for j2 in data[i2] {
+                if pivotTable.contains(key: j2) {
+                    queue.append(j2) // will be ignored if already queued.
                 } else if candidates.contains(j2) {
                     candidates.remove(j2)
                     if candidates.isEmpty {
@@ -234,9 +246,11 @@ public final class MatrixPivotFinder {
                     }
                 }
             }
+            
+            idx += 1
         }
 
-        if let j = candidates.anyElement {
+        if let j = candidates.min(by: { j in weight(i, j) }) {
             return (i, j)
         } else {
             return nil
@@ -244,20 +258,22 @@ public final class MatrixPivotFinder {
     }
     
     private func sortPivots() -> [(Int, Int)] {
-        let tree = PlainGraph(structure: Dictionary(keys: pivotTable.keys) { j1 -> [Int] in
+        try! pivotTable.keys.topologicalSort { j1 in
             let i1 = pivotTable[j1]!
-            return data[i1].reduce(into: []) { (res, next) in
-                let j2 = next.0
-                if j1 != j2 && pivotTable.contains(key: j2) {
-                    res.append(j2)
-                }
+            return data[i1].filter { j2 in
+                j1 != j2 && pivotTable.contains(key: j2)
             }
-        })
-        let sorted = tree.topologicalSort()
-        return sorted.map { v in
-            let j = v.id
-            return (pivotTable[j]!, j)
+        }.map { j in
+            (pivotTable[j]!, j)
         }
+    }
+    
+    private func isCandidate(_ i: Int, _ j: Int) -> Bool {
+        candidates[i]?.contains(j) ?? false
+    }
+    
+    private func weight(_ i: Int, _ j: Int) -> Double {
+        rowWeights[i] * colWeights[j]
     }
     
     private func setPivot(_ i: Int, _ j: Int) {

@@ -33,6 +33,19 @@ extension MatrixIF {
             entries: indices.enumerated().map{ (j, idx) in (idx, j, .identity) }
         )
     }
+}
+
+extension MatrixIF where Impl.BaseRing: ComputationalRing {
+    public func findPivots(mode: PivotMode = .rowBased) -> (pivots: [(Int, Int)], P: Permutation<n>, Q: Permutation<m>) {
+        let pf = MatrixPivotFinder(self, mode: mode)
+        pf.run()
+        
+        return (
+            pivots: pf.pivots,
+            P: pf.rowPermutation.as(Permutation.self),
+            Q: pf.colPermutation.as(Permutation.self)
+        )
+    }
     
     internal func appliedRowOperations<S>(_ ops: S) -> Self
     where S: Sequence, S.Element == RowElementaryOperation<BaseRing> {
@@ -47,20 +60,7 @@ extension MatrixIF {
     }
 }
 
-extension MatrixIF {
-    public func findPivots(mode: PivotMode = .rowBased) -> (pivots: [(Int, Int)], P: Permutation<n>, Q: Permutation<m>) {
-        let pf = MatrixPivotFinder(self, mode: mode)
-        pf.run()
-        
-        return (
-            pivots: pf.pivots,
-            P: pf.rowPermutation.as(Permutation.self),
-            Q: pf.colPermutation.as(Permutation.self)
-        )
-    }
-}
-
-extension MatrixIF where BaseRing: EuclideanRing {
+extension MatrixIF where BaseRing: EuclideanRing & ComputationalRing {
     public func eliminate(form: MatrixEliminationForm = .Diagonal) -> MatrixEliminationResult<Impl, n, m> {
         MatrixEliminator.eliminate(self, form: form)
     }
@@ -68,13 +68,7 @@ extension MatrixIF where BaseRing: EuclideanRing {
 
 extension MatrixIF where Impl: LUFactorizable {
     public func LUfactorize() -> LUFactorizationResult<Impl, n, m> {
-        let (P, Q, L, U) = impl.LUfactorize()
-        return LUFactorizationResult(
-            P: P.as(Permutation.self),
-            Q: Q.as(Permutation.self),
-            L: .init(L),
-            U: .init(U)
-        )
+        LUFactorizationResult(impl.LUfactorize())
     }
     
     public static func solveLowerTrapezoidal<k>(_ L: Self, _ b: MatrixIF<Impl, n, k>) -> MatrixIF<Impl, m, k>? {

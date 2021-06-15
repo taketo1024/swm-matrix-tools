@@ -26,6 +26,15 @@ public struct LUFactorizationResult<Impl: MatrixImpl & LUFactorizable, n: SizeTy
         self.U = U
     }
     
+    public init(_ raw: Impl.RawLUFactorizationResult) {
+        self.init(
+            P: raw.P.as(Permutation.self),
+            Q: raw.Q.as(Permutation.self),
+            L: .init(raw.L),
+            U: .init(raw.U)
+        )
+    }
+    
     public var PQLU: (PermutationP, PermutationQ, MatrixL, MatrixU) {
         (P, Q, L, U)
     }

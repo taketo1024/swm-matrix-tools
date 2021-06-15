@@ -8,7 +8,8 @@
 
 import SwmCore
 
-internal final class SmithEliminator<R: EuclideanRing>: MatrixEliminator<R> {
+internal final class SmithEliminator<R>: MatrixEliminator<R>
+where R: EuclideanRing & ComputationalRing {
     var currentIndex = 0
     var diagonals: [R] = []
     

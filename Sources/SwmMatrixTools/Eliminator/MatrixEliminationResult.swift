@@ -7,7 +7,8 @@
 
 import SwmCore
 
-public struct MatrixEliminationResult<Impl: MatrixImpl, n: SizeType, m: SizeType> {
+public struct MatrixEliminationResult<Impl, n, m>
+where Impl: MatrixImpl, Impl.BaseRing: ComputationalRing, n: SizeType, m: SizeType {
     public typealias R = Impl.BaseRing
     
     public let form: MatrixEliminationForm

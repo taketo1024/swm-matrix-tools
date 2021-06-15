@@ -8,7 +8,8 @@
 
 import SwmCore
 
-internal final class RowEchelonEliminator<R: EuclideanRing>: MatrixEliminator<R> {
+internal final class RowEchelonEliminator<R>: MatrixEliminator<R>
+where R: EuclideanRing & ComputationalRing {
     var currentRow = 0
     var currentCol = 0
     
