@@ -220,27 +220,25 @@ public final class MatrixPivotFinder {
 
         // the following are col-indexed.
         var candidates: Set<Int> = []
-        var queue: [Int] = []
-        var queued: Set<Int> = []
+        var queue: OrderedSet<Int> = []
 
         // initialize
         for j in row {
             if pivotTable.contains(key: j) {
                 queue.append(j)
-                queued.insert(j)
             } else if isCandidate(i, j) {
                 candidates.insert(j)
             }
         }
-
-        while !queue.isEmpty && !candidates.isEmpty {
-            let j1 = queue.removeFirst()
+        
+        var idx = 0
+        while idx < queue.count && !candidates.isEmpty {
+            let j1 = queue[idx]
             let i2 = pivotTable[j1]!
 
             for j2 in data[i2] {
-                if pivotTable.contains(key: j2) && !queued.contains(j2) {
-                    queue.append(j2)
-                    queued.insert(j2)
+                if pivotTable.contains(key: j2) {
+                    queue.append(j2) // will be ignored if already queued.
                 } else if candidates.contains(j2) {
                     candidates.remove(j2)
                     if candidates.isEmpty {
@@ -248,6 +246,8 @@ public final class MatrixPivotFinder {
                     }
                 }
             }
+            
+            idx += 1
         }
 
         if let j = candidates.min(by: { j in weight(i, j) }) {
