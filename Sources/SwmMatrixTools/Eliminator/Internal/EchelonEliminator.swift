@@ -55,7 +55,7 @@ where R: EuclideanRing & ComputationalRing {
     private func findPivot(in candidates: [ColEntry<R>]) -> ColEntry<R>? {
         candidates.min { (c1, c2) in
             let (i1, i2) = (c1.row, c2.row)
-            let (d1, d2) = (c1.value.computationalWeight, c2.value.computationalWeight)
+            let (d1, d2) = (c1.value.euclideanDegree, c2.value.euclideanDegree)
             return d1 < d2 || (d1 == d2 && data.rowWeight(i1) < data.rowWeight(i2))
         }
     }
