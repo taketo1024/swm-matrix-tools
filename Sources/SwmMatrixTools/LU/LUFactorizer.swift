@@ -119,7 +119,7 @@ public final class LUFactorizer<M> where M: LUFactorizable, M.BaseRing: Computat
         private func findPivot(in candidates: [ColEntry<R>]) -> ColEntry<R>? {
             candidates.min { (c1, c2) in
                 let (i1, i2) = (c1.row, c2.row)
-                let (d1, d2) = (c1.value.isInvertible ? 0 : 1, c2.value.isInvertible ? 0 : 1)
+                let (d1, d2) = (c1.value.computationalWeight, c2.value.computationalWeight)
                 return d1 < d2 || (d1 == d2 && data.rowWeight(i1) < data.rowWeight(i2))
             }
         }
