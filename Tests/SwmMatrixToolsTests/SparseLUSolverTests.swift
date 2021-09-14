@@ -8,7 +8,7 @@
 import Foundation
 import XCTest
 import SwmCore
-import SwmEigen
+
 @testable import SwmMatrixTools
 
 class SparseLUFactorizerTests: XCTestCase {
