@@ -30,7 +30,7 @@ public struct DefaultSparseMatrixImpl<R: Ring>: SparseMatrixImpl {
         self.indexRanges = indexRanges
     }
     
-    fileprivate init(size: MatrixSize, compressing cols: [[ColEntry<R>]], sorted: Bool) {
+    internal init(size: MatrixSize, compressing cols: [[ColEntry<R>]], sorted: Bool) {
         let (values, rowIndices, indexRanges) = Self.compress(cols, sorted: sorted)
         self.init(
             size: size,

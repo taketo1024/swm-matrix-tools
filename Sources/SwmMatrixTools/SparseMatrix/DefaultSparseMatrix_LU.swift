@@ -15,18 +15,21 @@ extension DefaultSparseMatrixImpl where BaseRing: Field {
         assert(L.size.rows == B.size.rows)
         
         let (n, k) = B.size
-        let entries = Array(0 ..< k).parallelFlatMap { j -> [MatrixEntry<BaseRing>] in
-            return self.solveLowerTriangularSingle(L, B, j)
+        let entries = Array(0 ..< k).parallelMap { j -> [ColEntry<BaseRing>] in
+            let b = B.colVector(j)
+            return self.solveLowerTriangularSingle(L, b)
         }
         
-        return .init(size: (n, k), entries: entries)
+        return .init(size: (n, k), compressing: entries, sorted: true)
     }
     
-    private static func solveLowerTriangularSingle(_ L: Self, _ B: Self, _ j: Int) -> [MatrixEntry<BaseRing>] {
-        let n = L.size.rows
-        var w = B.colVector(j).serialize()
+    private static func solveLowerTriangularSingle(_ L: Self, _ b: Self) -> [ColEntry<BaseRing>] {
+        assert(b.size.cols == 1)
         
-        var x: [MatrixEntry<BaseRing>] = []
+        let n = L.size.rows
+        var w = b.serialize()
+        
+        var x: [ColEntry<BaseRing>] = []
         x.reserveCapacity(n)
         
         for i in 0 ..< n {
@@ -39,7 +42,7 @@ extension DefaultSparseMatrixImpl where BaseRing: Field {
             let li = l[i, 0]
             let xi = wi * li.inverse!
             
-            x.append((i, j, xi))
+            x.append((i, xi))
             
             for (j, _, lj) in l.nonZeroEntries {
                 w[j] = w[j] - xi * lj
@@ -56,18 +59,21 @@ extension DefaultSparseMatrixImpl where BaseRing: Field {
         assert(U.size.rows == B.size.rows)
 
         let (n, k) = B.size
-        let entries = Array(0 ..< k).parallelFlatMap { j -> [MatrixEntry<BaseRing>] in
-            return self.solveUpperTriangularSingle(U, B, j)
+        let entries = Array(0 ..< k).parallelMap { j -> [ColEntry<BaseRing>] in
+            let b = B.colVector(j)
+            return self.solveUpperTriangularSingle(U, b)
         }
         
-        return .init(size: (n, k), entries: entries)
+        return .init(size: (n, k), compressing: entries, sorted: true)
     }
     
-    private static func solveUpperTriangularSingle(_ U: Self, _ B: Self, _ j: Int) -> [MatrixEntry<BaseRing>] {
-        let n = U.size.rows
-        var w = B.colVector(j).serialize()
+    private static func solveUpperTriangularSingle(_ U: Self, _ b: Self) -> [ColEntry<BaseRing>] {
+        assert(b.size.cols == 1)
         
-        var x: [MatrixEntry<BaseRing>] = []
+        let n = U.size.rows
+        var w = b.serialize()
+        
+        var x: [ColEntry<BaseRing>] = []
         x.reserveCapacity(n)
         
         for i in (0 ..< n).reversed() {
@@ -80,14 +86,14 @@ extension DefaultSparseMatrixImpl where BaseRing: Field {
             let ui = u[i, 0]
             let xi = wi * ui.inverse!
 
-            x.append((i, j, xi))
+            x.append((i, xi))
             
             for (j, _, uj) in u.nonZeroEntries {
                 w[j] = w[j] - xi * uj
             }
         }
         
-        return x
+        return x.reversed()
     }
 }
 
