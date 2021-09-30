@@ -13,7 +13,7 @@ import SwmCore
 
 class SparseLUFactorizerTests: XCTestCase {
     typealias R = RationalNumber
-    typealias M<n: SizeType, m: SizeType> = MatrixIF<DefaultSparseMatrixImpl<R>, n, m>
+    typealias M<n: SizeType, m: SizeType> = SparseMatrix<R, n, m>
 
     func testFactorizerPartialLU() {
         let A: M<_6, _9> = [

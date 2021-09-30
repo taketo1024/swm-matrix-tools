@@ -10,10 +10,10 @@ import XCTest
 import SwmCore
 @testable import SwmMatrixTools
 
-class DefaultSparseMatrixTests: XCTestCase {
+class SparseMatrixTests: XCTestCase {
     
     typealias R = 𝐙
-    typealias M<n, m> = MatrixIF<DefaultSparseMatrixImpl<R>, n, m> where n: SizeType, m: SizeType
+    typealias M<n, m> = SparseMatrix<R, n, m> where n: SizeType, m: SizeType
     typealias M2 = M<_2, _2>
     
     func testInitByInitializer() {

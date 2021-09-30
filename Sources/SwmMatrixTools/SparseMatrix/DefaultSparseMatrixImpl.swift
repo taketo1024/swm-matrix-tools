@@ -311,5 +311,3 @@ public struct DefaultSparseMatrixImpl<R: Ring>: SparseMatrixImpl {
         }
     }
 }
-
-extension DefaultSparseMatrixImpl: LUFactorizable where BaseRing: Field & ComputationalRing {}
