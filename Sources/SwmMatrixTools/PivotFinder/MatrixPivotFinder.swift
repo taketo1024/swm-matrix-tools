@@ -16,6 +16,7 @@
 //  https://github.com/cbouilla/spasm
 
 import SwmCore
+import OrderedCollections
 import Dispatch
 
 public enum PivotMode {

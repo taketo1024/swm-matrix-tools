@@ -10,9 +10,6 @@ import SwmCore
 //  CSC (compressed sparse colums) format.
 //  https://en.wikipedia.org/wiki/Sparse_matrix#Compressed_sparse_row_(CSR,_CRS_or_Yale_format)
 
-@available(*, deprecated, message: "use DefaultSparseMatrixImpl")
-public typealias CSCMatrixImpl<R: Ring> = DefaultSparseMatrixImpl<R>
-
 public struct DefaultSparseMatrixImpl<R: Ring>: SparseMatrixImpl {
     public typealias BaseRing = R
     
@@ -33,7 +30,7 @@ public struct DefaultSparseMatrixImpl<R: Ring>: SparseMatrixImpl {
         self.indexRanges = indexRanges
     }
     
-    fileprivate init(size: MatrixSize, compressing cols: [[ColEntry<R>]], sorted: Bool) {
+    internal init(size: MatrixSize, compressing cols: [[ColEntry<R>]], sorted: Bool) {
         let (values, rowIndices, indexRanges) = Self.compress(cols, sorted: sorted)
         self.init(
             size: size,
@@ -220,19 +217,19 @@ public struct DefaultSparseMatrixImpl<R: Ring>: SparseMatrixImpl {
         
         let cols: [[ColEntry<R>]] =
             Array(0 ..< b.size.cols).parallelMap { j -> [ColEntry<R>] in
-                b.indexRange(j).flatMap { idx2 -> [ColEntry<R>] in
+                var col = Array(repeating: R.zero, count: a.size.rows)
+                for idx2 in b.indexRange(j) {
                     let k = b.rowIndices[idx2]
                     let b_kj = b.values[idx2]
-                    return a.indexRange(k).map { idx1 in
+                    for idx1 in a.indexRange(k) {
                         let i = a.rowIndices[idx1]
                         let a_ik = a.values[idx1]
-                        return ColEntry(i, a_ik * b_kj)
+                        col[i] = col[i] + a_ik * b_kj
                     }
                 }
-                .group{ $0.row }
-                .mapValues { $0.sum{ $0.value } }
-                .compactMap{ (i, a) in a.isZero ? nil : ColEntry(i, a) }
-                .sorted{ $0.row }
+                return col.enumerated().compactMap { (i, a) in
+                    !a.isZero ? (i, a) : nil
+                }
             }
         
         return .init(
@@ -314,5 +311,3 @@ public struct DefaultSparseMatrixImpl<R: Ring>: SparseMatrixImpl {
         }
     }
 }
-
-extension DefaultSparseMatrixImpl: LUFactorizable where BaseRing: Field & ComputationalRing {}
