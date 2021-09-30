@@ -7,6 +7,8 @@
 
 import SwmCore
 
+private var _defaultDensityThreshold = 0.3
+
 public final class SparseLUFactorizer<M: SparseMatrixImpl & LUFactorizable> where M.BaseRing: ComputationalRing {
     public typealias Matrix = M
     
@@ -16,8 +18,13 @@ public final class SparseLUFactorizer<M: SparseMatrixImpl & LUFactorizable> wher
     public private(set) var L: Matrix
     public private(set) var U: Matrix
     
-    public var densityThreshold = 0.3
+    public var densityThreshold: Double
     public var debug: Bool
+    
+    public static var defaultDensityThreshold: Double {
+        get { _defaultDensityThreshold }
+        set { _defaultDensityThreshold = newValue }
+    }
     
     public convenience init<n, m>(_ A: MatrixIF<Matrix, n, m>, debug: Bool = false) {
         self.init(A.impl, debug: debug)
@@ -30,6 +37,7 @@ public final class SparseLUFactorizer<M: SparseMatrixImpl & LUFactorizable> wher
         self.Q = Permutation.identity(length: m)
         self.L = Matrix.zero(size: (n, 0))
         self.U = Matrix.zero(size: (0, m))
+        self.densityThreshold = Self.defaultDensityThreshold
         self.debug = debug
     }
     
